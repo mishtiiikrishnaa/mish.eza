@@ -1,13 +1,19 @@
 /* ═══════════════════════════════════════════════════════════════════════
    mish.eza · styles
-   starship prompt + eza command header, and + / - fold markers.
-   colours use the same --vf-* variables as mish.fastfetch, with fallbacks.
+   starship prompt + eza tree. colours use the same --vf-* variables as
+   mish.fastfetch, with fallbacks.
+   tweak these if you like:
+     --ez-line   colour of the tree lines
+     --ez-row    row height
    ═══════════════════════════════════════════════════════════════════════ */
 
 .ez-root,
 .ez-root * { box-sizing: border-box; }
 
 .ez-root {
+  --ez-line: var(--vf-tree-line, rgba(232, 232, 237, 0.28));
+  --ez-row: 22px;
+
   font-family: var(--vf-mono, "CMU Typewriter Text", "Symbols Nerd Font Mono", ui-monospace, monospace);
   color: var(--vf-fg, #e8e8ed);
   font-size: 12.5px;
@@ -16,6 +22,26 @@
   padding: 10px 10px 2px;
   text-align: left;
   user-select: none;
+}
+
+/* the five little pills (new note, new folder, sort, reveal, collapse) */
+.workspace-leaf-content[data-type="file-explorer"] .nav-buttons-container {
+  display: none !important;
+}
+
+/* eza mode: hide the native list, let our tree scroll */
+.workspace-leaf-content[data-type="file-explorer"].ez-on .nav-files-container {
+  display: none !important;
+}
+.workspace-leaf-content[data-type="file-explorer"].ez-on .ez-root {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.workspace-leaf-content[data-type="file-explorer"]:not(.ez-on) .ez-tree {
+  display: none;
 }
 
 /* — powerline starship prompt — */
@@ -70,13 +96,12 @@
   text-overflow: ellipsis;
   background: var(--vf-peach, #ffd6a6);
 }
+.ez-git   { background: var(--vf-yellow, #fff1a8); }
+.ez-node  { background: var(--vf-green, #c9ffa6); }
 .ez-clock { background: var(--vf-lilac, #c9b0ff); }
 
-/* the little ">>>" chevrons between path and clock */
-.ez-seg.ez-ch  { width: 18px; padding: 0; }
-.ez-ch1 { background: var(--vf-yellow, #fff1a8); }
-.ez-ch2 { background: var(--vf-green, #c9ffa6); }
-.ez-ch3 { background: var(--vf-blue, #a6c9ff); }
+/* the little blue arrow before the clock */
+.ez-seg.ez-ch { width: 18px; padding: 0; background: var(--vf-blue, #a6c9ff); }
 
 /* — the command — */
 .ez-cmd {
@@ -89,16 +114,99 @@
 .ez-chev     { color: var(--vf-green, #c9ffa6); }
 .ez-exe      { color: var(--vf-green, #c9ffa6); }
 .ez-arg      { color: var(--vf-fg, #e8e8ed); }
-.ez-path-arg { color: var(--vf-blue, #a6c9ff); }
+.ez-path-arg { color: var(--vf-fg, #e8e8ed); text-decoration: underline; }
 
 /* eza prints the root as a dot */
 .ez-dot {
+  height: var(--ez-row);
+  line-height: var(--ez-row);
   font-size: 12px;
-  color: var(--vf-fg, #e8e8ed);
-  margin-bottom: 2px;
+  color: var(--vf-cyan, #a6fff0);
 }
 
-/* ═══ fold markers: + (collapsed) / - (expanded) instead of arrows ═══ */
+/* ═══ the tree: lines are drawn by css cells, so columns never drift ═══ */
+
+.ez-tree {
+  padding-bottom: 24px;
+}
+
+.ez-row {
+  display: flex;
+  align-items: stretch;
+  height: var(--ez-row);
+  line-height: var(--ez-row);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* one 4-char cell per depth, exactly like eza's "│   " / "├── " / "└── " */
+.ez-cell {
+  position: relative;
+  flex: 0 0 4ch;
+  width: 4ch;
+}
+
+/* │ */
+.ez-v::before,
+.ez-t::before {
+  content: "";
+  position: absolute;
+  left: 0.5ch;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--ez-line);
+}
+
+/* └ (only the top half of the bar) */
+.ez-l::before {
+  content: "";
+  position: absolute;
+  left: 0.5ch;
+  top: 0;
+  height: 50%;
+  border-left: 1px solid var(--ez-line);
+}
+
+/* ── */
+.ez-t::after,
+.ez-l::after {
+  content: "";
+  position: absolute;
+  left: 0.5ch;
+  top: 50%;
+  width: 3ch;
+  border-top: 1px solid var(--ez-line);
+}
+
+.ez-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 6px;
+  border-radius: 4px;
+}
+
+.ez-row:hover .ez-name { background: rgba(255, 166, 201, 0.08); }
+.ez-row.is-active .ez-name { background: rgba(255, 120, 165, 0.18); }
+
+/* fold marker column: + collapsed, - expanded, blank for files */
+.ez-fold {
+  display: inline-block;
+  width: 2ch;
+  color: var(--vf-pink, #ff78a5);
+}
+
+/* colours by type, the way eza does it */
+.ez-dir { color: var(--vf-cyan, #a6fff0); }
+.ez-doc { color: var(--vf-fg, #e8e8ed); }
+.ez-img { color: var(--vf-pink, #ff78a5); }
+.ez-pdf { color: var(--vf-peach, #ffd6a6); }
+.ez-cv  { color: var(--vf-lilac, #c9b0ff); }
+.ez-etc { color: var(--vf-fg, #e8e8ed); }
+
+/* ═══ native explorer fold markers (only visible if you toggle it back on) ═══ */
 
 .workspace-leaf-content[data-type="file-explorer"] .nav-folder-title .collapse-icon,
 .workspace-leaf-content[data-type="file-explorer"] .nav-folder-collapse-indicator {
@@ -112,20 +220,17 @@
   line-height: 1;
 }
 
-/* hide obsidian's chevron svg */
 .workspace-leaf-content[data-type="file-explorer"] .nav-folder-title .collapse-icon svg,
 .workspace-leaf-content[data-type="file-explorer"] .nav-folder-collapse-indicator svg {
   display: none !important;
 }
 
-/* expanded */
 .workspace-leaf-content[data-type="file-explorer"] .nav-folder-title .collapse-icon::before,
 .workspace-leaf-content[data-type="file-explorer"] .nav-folder-collapse-indicator::before {
   content: "-";
   transform: none;
 }
 
-/* collapsed */
 .workspace-leaf-content[data-type="file-explorer"] .nav-folder.is-collapsed > .nav-folder-title .collapse-icon::before,
 .workspace-leaf-content[data-type="file-explorer"] .nav-folder.is-collapsed > .nav-folder-title .nav-folder-collapse-indicator::before {
   content: "+";
