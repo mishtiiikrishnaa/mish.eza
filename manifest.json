@@ -1,0 +1,10 @@
+{
+  "id": "mish.eza",
+  "name": "mish.eza",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.0",
+  "description": "starship prompt + eza --tree header above the file explorer, with +/- fold markers instead of arrows.",
+  "author": "mishti",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}

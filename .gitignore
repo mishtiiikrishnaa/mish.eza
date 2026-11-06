@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# temporary files
+*.tmp
+*.bak
+*.log
+
+# dependencies
+node_modules/
+
+# environment
+.env
+.env.*
+!.env.example

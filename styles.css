@@ -1,0 +1,132 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   mish.eza · styles
+   starship prompt + eza command header, and + / - fold markers.
+   colours use the same --vf-* variables as mish.fastfetch, with fallbacks.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.ez-root,
+.ez-root * { box-sizing: border-box; }
+
+.ez-root {
+  font-family: var(--vf-mono, "CMU Typewriter Text", "Symbols Nerd Font Mono", ui-monospace, monospace);
+  color: var(--vf-fg, #e8e8ed);
+  font-size: 12.5px;
+  line-height: 1.5;
+  letter-spacing: 0.005em;
+  padding: 10px 10px 2px;
+  text-align: left;
+  user-select: none;
+}
+
+/* — powerline starship prompt — */
+.ez-bar {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0 0 8px;
+}
+
+.ez-seg {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  height: 22px;
+  padding: 0 16px 0 9px;
+  font-size: 11.5px;
+  line-height: 22px;
+  white-space: nowrap;
+  color: var(--vf-black, #0f0f12);
+  /* arrow tip on the right edge */
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 0 100%);
+}
+
+/* each segment tucks under the previous arrow tip */
+.ez-seg + .ez-seg {
+  margin-left: -9px;
+  padding-left: 18px;
+}
+
+.ez-seg:first-child {
+  border-radius: 11px 0 0 11px;
+  padding-left: 11px;
+}
+
+.ez-seg:last-child {
+  clip-path: none;
+  border-radius: 0 11px 11px 0;
+  padding-right: 12px;
+}
+
+.ez-user  { background: var(--vf-pink-hi, #ffa6c9); }
+.ez-path  {
+  display: block;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--vf-peach, #ffd6a6);
+}
+.ez-clock { background: var(--vf-lilac, #c9b0ff); }
+
+/* the little ">>>" chevrons between path and clock */
+.ez-seg.ez-ch  { width: 18px; padding: 0; }
+.ez-ch1 { background: var(--vf-yellow, #fff1a8); }
+.ez-ch2 { background: var(--vf-green, #c9ffa6); }
+.ez-ch3 { background: var(--vf-blue, #a6c9ff); }
+
+/* — the command — */
+.ez-cmd {
+  margin: 6px 0 2px;
+  font-size: 11.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ez-chev     { color: var(--vf-green, #c9ffa6); }
+.ez-exe      { color: var(--vf-green, #c9ffa6); }
+.ez-arg      { color: var(--vf-fg, #e8e8ed); }
+.ez-path-arg { color: var(--vf-blue, #a6c9ff); }
+
+/* eza prints the root as a dot */
+.ez-dot {
+  font-size: 12px;
+  color: var(--vf-fg, #e8e8ed);
+  margin-bottom: 2px;
+}
+
+/* ═══ fold markers: + (collapsed) / - (expanded) instead of arrows ═══ */
+
+.workspace-leaf-content[data-type="file-explorer"] .nav-folder-title .collapse-icon,
+.workspace-leaf-content[data-type="file-explorer"] .nav-folder-collapse-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  color: var(--vf-pink, #ff78a5);
+  font-family: var(--vf-mono, "CMU Typewriter Text", "Symbols Nerd Font Mono", ui-monospace, monospace);
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* hide obsidian's chevron svg */
+.workspace-leaf-content[data-type="file-explorer"] .nav-folder-title .collapse-icon svg,
+.workspace-leaf-content[data-type="file-explorer"] .nav-folder-collapse-indicator svg {
+  display: none !important;
+}
+
+/* expanded */
+.workspace-leaf-content[data-type="file-explorer"] .nav-folder-title .collapse-icon::before,
+.workspace-leaf-content[data-type="file-explorer"] .nav-folder-collapse-indicator::before {
+  content: "-";
+  transform: none;
+}
+
+/* collapsed */
+.workspace-leaf-content[data-type="file-explorer"] .nav-folder.is-collapsed > .nav-folder-title .collapse-icon::before,
+.workspace-leaf-content[data-type="file-explorer"] .nav-folder.is-collapsed > .nav-folder-title .nav-folder-collapse-indicator::before {
+  content: "+";
+}
