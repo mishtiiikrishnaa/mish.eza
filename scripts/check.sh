@@ -71,12 +71,17 @@ sys.exit(0 if t.count('{')==t.count('}') else 1)
 PY
 if grep -qE 'Mish (Typewriter|Symbols)' styles.css main.js; then bad "old font names are still around"; else ok "no leftover old font names"; fi
 [ "$(grep -c '@font-face' styles.css)" = "2" ] && ok "two @font-face blocks" || bad "expected exactly two @font-face blocks"
-if grep -n 'docs/images' README.md | grep -v '^[0-9]*:<!--' | grep -v 'add a screenshot' >/dev/null; then warn "README mentions docs/images: is that link still valid?"; fi
+for img in $(grep -oE 'docs/screenshots/[A-Za-z0-9._-]+' README.md | sort -u); do
+  if [ -f "$img" ]; then ok "readme image exists: $img"; else bad "README shows $img but that file does not exist"; fi
+done
+[ -f LICENSE ] && head -1 LICENSE | grep -q '^MIT License$' && ok "LICENSE starts with the standard MIT title (github can identify it)" || bad "LICENSE should be the plain MIT text, untouched"
 
 echo "git hygiene"
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  media=$(git ls-files | grep -Ei '\.(png|jpe?g|gif|webp|mp4|mov)$' || true)
-  [ -z "$media" ] && ok "no images or videos are tracked" || { bad "tracked media found:"; echo "$media"; }
+  media=$(git ls-files | grep -Ei '\.(png|jpe?g|gif|webp|mp4|mov|heic)$' | grep -v '^docs/screenshots/' || true)
+  [ -z "$media" ] && ok "no stray images or videos are tracked (docs/screenshots/ is the only allowed home)" || { bad "tracked media outside docs/screenshots/:"; echo "$media"; }
+  big=$(git ls-files docs/screenshots 2>/dev/null | while read -r f; do [ -f "$f" ] && [ "$(wc -c < "$f")" -gt 400000 ] && echo "$f"; done)
+  [ -z "$big" ] && ok "tracked screenshots are all under 400 KB" || { bad "screenshots over 400 KB, shrink them:"; echo "$big"; }
   junk=$(git ls-files | grep -E '(^|/)(data\.json|\.DS_Store)$' || true)
   [ -z "$junk" ] && ok "data.json and .DS_Store are not tracked" || { bad "tracked junk found:"; echo "$junk"; }
   [ -z "$(git status --porcelain)" ] && ok "working tree is clean" || warn "uncommitted changes"

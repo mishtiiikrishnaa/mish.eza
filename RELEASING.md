@@ -61,7 +61,8 @@ obsidian plugins are not npm packages. the "package" is **three files attached t
 
 - [ ] fresh clone into a temp folder (`git clone ... /tmp/x`), run `bash scripts/check.sh` there.
 - [ ] the readme renders on github: every link works, no broken images.
-- [ ] `LICENSE`, `THIRD-PARTY-NOTICES.md` and `licenses/` are all present.
+- [ ] `LICENSE`, `THIRD-PARTY-NOTICES.md` and `licenses/` are all present, and github's sidebar says **MIT** (not "view license"). the `LICENSE` file must stay the plain, unedited mit text or github cannot identify it; anything extra goes in `THIRD-PARTY-NOTICES.md`.
+- [ ] screenshots live in `docs/screenshots/`, each under about 300 KB, and show no real name, vault path or private note titles.
 - [ ] the minimum version: either install obsidian 1.5.x and test on it, or raise `minAppVersion` to the oldest version you actually tested. a promise you haven't tested is a fib.
 
 ## cutting the release

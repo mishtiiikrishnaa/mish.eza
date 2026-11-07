@@ -10,34 +10,19 @@
 ![desktop only](https://img.shields.io/badge/desktop-only-ffa6c9?style=flat-square&labelColor=1a1a1a)
 ![network](https://img.shields.io/badge/network-none-ffa6c9?style=flat-square&labelColor=1a1a1a)
 
-[what you get](#what-you-get) · [commands](#commands) · [install](#install) · [settings](#settings) · [privacy](#what-it-runs-on-your-computer) · [fonts](#fonts) · [faq](#faq)
+[what you get](#what-you-get) · [commands](#commands) · [in use](#in-use) · [install](#install) · [settings](#settings) · [privacy](#what-it-runs-on-your-computer) · [fonts](#fonts) · [faq](#faq)
 
-<!--
-HERO IMAGE: drag a png into any github issue or pull request comment box (do not submit it),
-copy the https://github.com/user-attachments/... link it makes, delete this comment, and put:
-
-<img src="THE-LINK" alt="the mish.eza panel" width="420">
-
-no image file needs to live in this repository.
--->
+<p align="center">
+  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/panel.png" alt="the mish.eza panel: a starship prompt above an eza-style file tree" width="460">
+</p>
 
 </div>
 
-a starship-style prompt, a real `eza --tree` listing coloured by depth, and a tiny command line (`touch`, `mkdir`, `rename`, `mv`, `cp`, `rm` and friends) in place of the explorer's buttons. a sketch of what the panel draws (the real thing is coloured):
+a starship-style prompt, a real `eza --tree` listing coloured by depth, and a tiny command line (`touch`, `mkdir`, `rename`, `mv`, `cp`, `rm` and friends) in place of the explorer's buttons.
 
-```text
- mishti   my-vault   main   18:13
-❯ eza --tree --all --level=99 .
-.
-├── daily
-│   ├── 2026-11-06.md
-│   └── 2026-11-07.md
-├── poems
-│   └── ode to a teacup.md
-└── readme.md
-
-❯ touch  mkdir  rename  mv  cp  rm  sort  help
-```
+| prompt | tree | shell |
+| --- | --- | --- |
+| pills for your user, the vault, the git branch and the time | real `├──` `└──` `│` lines, one colour per depth | `touch` `mkdir` `mv` `cp` `rm` and more, with tab completion |
 
 ## what you get
 
@@ -65,6 +50,12 @@ desktop only.
 names with spaces need "quotes". the original explorer is only hidden: run **toggle native file explorer** from the command palette to bring it back, and **redraw the prompt** if the panel ever goes missing.
 
 > **careful:** `rm` and `delete` send things to the system trash and do **not** ask first. you can fish them back out, but mind your fingers.
+
+## in use
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/commands.png" alt="mish.eza with a few commands typed into its little shell" width="720">
+</p>
 
 ## install
 
