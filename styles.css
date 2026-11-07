@@ -29,6 +29,66 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
+   light + dark palette (follows obsidian's theme setting, so it works with
+   any theme). two sets of colours:
+     --mz-*    text, lines and icons (dark mode: the pastels; light mode: deeper
+               versions that stay readable on a pale sidebar)
+     --mz-f-*  pill, ring and scrollbar fills (pastel in both; dark text sits on them)
+   a theme that defines its own --vf-* variables still wins over all of this.
+   ═══════════════════════════════════════════════════════════════════════ */
+body {
+  --mz-pink-hi: #ffa6c9;
+  --mz-pink: #ff78a5;
+  --mz-peach: #ffd6a6;
+  --mz-yellow: #fff1a8;
+  --mz-green: #c9ffa6;
+  --mz-blue: #a6c9ff;
+  --mz-lilac: #c9b0ff;
+  --mz-cyan: #a6fff0;
+  --mz-dim: #6d6d7a;
+  --mz-fg: #e8e8ed;
+  --mz-line: #2a2a2f;
+  --mz-f-pink: #ff78a5;
+  --mz-f-lilac: #c9b0ff;
+  --mz-f-yellow: #fff1a8;
+  --mz-f-green: #c9ffa6;
+  --mz-f-blue: #a6c9ff;
+  --mz-f-peach: #ffd6a6;
+  --mz-f-cyan: #a6fff0;
+  --mz-f-pink-hi: #ffa6c9;
+  --mz-tree-line: rgba(232, 232, 237, 0.28);
+  --mz-hover: rgba(255, 255, 255, 0.06);
+  --mz-rule: rgba(232, 232, 237, 0.08);
+  --mz-shadow: rgba(0, 0, 0, 0.45);
+}
+
+body.theme-light {
+  --mz-pink-hi: #d6336c;
+  --mz-pink: #b0124f;
+  --mz-peach: #b45309;
+  --mz-yellow: #946b00;
+  --mz-green: #2f7d12;
+  --mz-blue: #1f5fbf;
+  --mz-lilac: #6d3fd1;
+  --mz-cyan: #0b7a75;
+  --mz-dim: #6d6d7a;
+  --mz-fg: #24242b;
+  --mz-line: #d5d5db;
+  --mz-f-pink-hi: #ff8fbb;
+  --mz-f-pink: #ff6b9b;
+  --mz-f-peach: #ffbe7a;
+  --mz-f-yellow: #ffdf5e;
+  --mz-f-green: #a3ee74;
+  --mz-f-blue: #84b0ff;
+  --mz-f-lilac: #ae8cff;
+  --mz-f-cyan: #6fe8d6;
+  --mz-tree-line: rgba(30, 30, 40, 0.28);
+  --mz-hover: rgba(0, 0, 0, 0.06);
+  --mz-rule: rgba(30, 30, 40, 0.1);
+  --mz-shadow: rgba(0, 0, 0, 0.18);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
    mish-eza · styles
    starship prompt, eza tree, a little shell, rainbow gradient on our own icons.
    colours use the same --vf-* variables as mish.fastfetch, with fallbacks.
@@ -45,11 +105,11 @@
 .ez-root [hidden] { display: none !important; }
 
 .ez-root {
-  --ez-line: var(--vf-tree-line, rgba(232, 232, 237, 0.28));
+  --ez-line: var(--vf-tree-line, var(--mz-tree-line));
   --ez-row: 22px;
 
   font-family: var(--vf-mono, "mish mono", ui-monospace, monospace), "mish icons", "Symbols Nerd Font Mono";
-  color: var(--vf-fg, #e8e8ed);
+  color: var(--vf-fg, var(--mz-fg));
   font-size: 12.5px;
   line-height: 1.5;
   letter-spacing: 0.005em;
@@ -63,9 +123,12 @@
 
 /* ═══ the card: same box as fastfetch's .vf ═══
    no colour of its own (the theme's sidebar shows through), a thin themed
-   border, 10px corners. it fills the pane's width, so it's the same width as
-   the mish.fastfetch card (both sit inside 10px of padding), and it never grows
-   taller than the pane (the tree scrolls inside it, the shell line stays put).
+   border, 10px corners. its width comes from the starship prompt alone (plus
+   the 12px padding), exactly like the mish.fastfetch card, so the two are the
+   same size without any number written down. everything under the prompt
+   (the command, the tree, the shell) just fills that width (see the contain
+   rule below). it never grows taller than the pane (the tree scrolls inside
+   it, the shell line stays put).
    it centres itself vertically when short; to pin it to the top instead,
    change margin to: 0 auto auto */
 .ez-card {
@@ -73,7 +136,8 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  width: 100%;
+  width: fit-content;            /* = the prompt's width + padding, nothing else decides it */
+  min-width: min(100%, 28ch);    /* floor for when most of the prompt pills are off */
   max-width: 100%;
   max-height: 100%;
   margin: auto;
@@ -95,12 +159,12 @@
   border-radius: inherit;
   background: linear-gradient(
     135deg,
-    var(--vf-pink-hi, #ffa6c9),
-    var(--vf-peach, #ffd6a6),
-    var(--vf-yellow, #fff1a8),
-    var(--vf-green, #c9ffa6),
-    var(--vf-blue, #a6c9ff),
-    var(--vf-lilac, #c9b0ff)
+    var(--vf-pink-hi, var(--mz-f-pink-hi)),
+    var(--vf-peach, var(--mz-f-peach)),
+    var(--vf-yellow, var(--mz-f-yellow)),
+    var(--vf-green, var(--mz-f-green)),
+    var(--vf-blue, var(--mz-f-blue)),
+    var(--vf-lilac, var(--mz-f-lilac))
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
@@ -109,6 +173,14 @@
   pointer-events: none;
 }
 
+
+/* only the prompt decides the card's width: every other line ignores its own
+   content when the card works that out, then fills the card (names ellipsise,
+   the command wraps). the shell and the help page are direct children of the
+   card, so they get the same treatment. */
+.ez-scroll > :not(.ez-bar),
+.ez-card > .ez-foot,
+.ez-card > .ez-helppage { contain: inline-size; }
 
 /* prompt + tree live in here and scroll */
 .ez-scroll {
@@ -121,12 +193,12 @@
 
 /* ═══ depth colours: same order as the prompt pills ═══
    pink → peach → yellow → green → blue → lilac, then round again */
-.ez-c0 { --c: var(--vf-pink-hi, #ffa6c9); }
-.ez-c1 { --c: var(--vf-peach, #ffd6a6); }
-.ez-c2 { --c: var(--vf-yellow, #fff1a8); }
-.ez-c3 { --c: var(--vf-green, #c9ffa6); }
-.ez-c4 { --c: var(--vf-blue, #a6c9ff); }
-.ez-c5 { --c: var(--vf-lilac, #c9b0ff); }
+.ez-c0 { --c: var(--vf-pink-hi, var(--mz-pink-hi)); }
+.ez-c1 { --c: var(--vf-peach, var(--mz-peach)); }
+.ez-c2 { --c: var(--vf-yellow, var(--mz-yellow)); }
+.ez-c3 { --c: var(--vf-green, var(--mz-green)); }
+.ez-c4 { --c: var(--vf-blue, var(--mz-blue)); }
+.ez-c5 { --c: var(--vf-lilac, var(--mz-lilac)); }
 
 /* eza mode: hide the native pills and list; the tree scrolls, the shell is
    pinned flush to the bottom (no padding between it and the vault switcher) */
@@ -161,6 +233,7 @@
   justify-content: flex-start;
   align-items: center;
   flex-wrap: nowrap;
+  width: max-content;          /* its natural width is what sizes the card */
   min-width: 0;
   max-width: 100%;
   margin: 0 0 8px;
@@ -204,11 +277,11 @@
   padding-left: 11px;
 }
 
-.ez-user  { background: var(--vf-pink-hi, #ffa6c9); }
+.ez-user  { background: var(--vf-pink-hi, var(--mz-f-pink-hi)); }
 .ez-path  {
   display: block;
   flex: 0 0 auto;              /* the full vault name always shows; main.js scales the bar to fit */
-  background: var(--vf-peach, #ffd6a6);
+  background: var(--vf-peach, var(--mz-f-peach));
 }
 /* only below half size does the name start to ellipsise */
 .ez-bar.is-squeezed .ez-path {
@@ -217,7 +290,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ez-git   { background: var(--vf-yellow, #fff1a8); }
+.ez-git   { background: var(--vf-yellow, var(--mz-f-yellow)); }
 .ez-git-icon {
   display: inline-flex;
   align-items: center;
@@ -228,30 +301,33 @@
   height: 12px;
   stroke: currentColor !important;
 }
-.ez-clock { background: var(--vf-lilac, #c9b0ff); }
+.ez-clock { background: var(--vf-lilac, var(--mz-f-lilac)); }
 
-/* the little blue arrow before the clock (only drawn when something comes before it) */
-.ez-seg.ez-ch { width: 18px; padding: 0; background: var(--vf-blue, #a6c9ff); }
+/* the little ">>>" chevrons before the clock (only drawn when something comes before it),
+   same three colours and same width as mish.fastfetch's */
+.ez-seg.ez-ch  { width: 18px; padding: 0; }
+.ez-ch1 { background: var(--vf-yellow, var(--mz-f-yellow)); }
+.ez-ch2 { background: var(--vf-green, var(--mz-f-green)); }
+.ez-ch3 { background: var(--vf-blue, var(--mz-f-blue)); }
 
 /* — the command — */
 .ez-cmd {
   margin: 6px 0 2px;
   font-size: 11.5px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;           /* wraps at the spaces rather than cutting the path off */
+  overflow-wrap: anywhere;
 }
-.ez-chev     { color: var(--vf-green, #c9ffa6); }
-.ez-exe      { color: var(--vf-green, #c9ffa6); }
-.ez-arg      { color: var(--vf-fg, #e8e8ed); }
-.ez-path-arg { color: var(--vf-fg, #e8e8ed); text-decoration: underline; }
+.ez-chev     { color: var(--vf-green, var(--mz-green)); }
+.ez-exe      { color: var(--vf-green, var(--mz-green)); }
+.ez-arg      { color: var(--vf-fg, var(--mz-fg)); }
+.ez-path-arg { color: var(--vf-fg, var(--mz-fg)); text-decoration: underline; }
 
 /* eza prints the root as a dot */
 .ez-dot {
   height: var(--ez-row);
   line-height: var(--ez-row);
   font-size: 12px;
-  color: var(--vf-cyan, #a6fff0);
+  color: var(--vf-cyan, var(--mz-cyan));
 }
 
 /* ═══ the tree: lines are drawn by css cells, so columns never drift ═══ */
@@ -319,14 +395,14 @@
   text-overflow: ellipsis;
   padding-right: 6px;
   border-radius: 4px;
-  color: var(--c, var(--vf-fg, #e8e8ed));
+  color: var(--c, var(--vf-fg, var(--mz-fg)));
 }
 
 .ez-dir { font-weight: 700; }
 
-.ez-row:hover .ez-name { background: rgba(255, 255, 255, 0.06); }
+.ez-row:hover .ez-name { background: var(--mz-hover); }
 .ez-row.is-active .ez-name {
-  outline: 1px solid var(--c, var(--vf-pink, #ff78a5));
+  outline: 1px solid var(--c, var(--vf-pink, var(--mz-pink)));
   outline-offset: -1px;
 }
 
@@ -343,7 +419,7 @@
   margin: 0;
   padding: 6px 12px 8px;
   background: transparent;       /* part of the card, like fastfetch's last prompt */
-  border-top: 1px solid var(--background-modifier-border, var(--vf-line, #2a2a2f));
+  border-top: 1px solid var(--background-modifier-border, var(--vf-line, var(--mz-line)));
   font-size: 11.5px;
 }
 
@@ -354,10 +430,10 @@
   max-height: min(8.5em, 28vh);   /* a few lines; the rest scrolls, so the prompt never gets pushed away */
   overflow-y: auto;
   cursor: pointer;                /* click it to dismiss */
-  color: var(--vf-green, #c9ffa6);
+  color: var(--vf-green, var(--mz-green));
 }
 .ez-out:empty { display: none; }
-.ez-out.is-bad { color: var(--vf-pink, #ff78a5); }
+.ez-out.is-bad { color: var(--vf-pink, var(--mz-pink)); }
 
 /* ═══ prompt syntax highlighting ═══
    no bold / letter-spacing here on purpose: the coloured copy must be exactly
@@ -372,7 +448,7 @@
   font: inherit;
   display: flex;
   align-items: center;
-  color: var(--vf-fg, #e8e8ed);
+  color: var(--vf-fg, var(--mz-fg));
 }
 .ez-hl-in { display: inline-block; white-space: pre; }
 
@@ -397,7 +473,7 @@
   white-space: pre;
   line-height: 12px;
   color: var(--vf-black, #0f0f12);     /* the letter under it, inverted like a terminal */
-  background: var(--vf-pink-hi, #ffa6c9);
+  background: var(--vf-pink-hi, var(--mz-f-pink-hi));
   animation: ez-blink 1.1s steps(1) infinite;
 }
 .ez-inwrap.is-focus .ez-caret { display: block; }
@@ -406,7 +482,7 @@
   display: block;
   color: transparent;
   background: transparent;
-  outline: 1px solid var(--vf-pink-hi, #ffa6c9);
+  outline: 1px solid var(--vf-pink-hi, var(--mz-pink-hi));
   outline-offset: -1px;
   animation: none;
   opacity: 0.55;
@@ -421,14 +497,14 @@
 }
 
 
-.ez-hl-cmd  { color: var(--vf-green, #c9ffa6); }                         /* a command that exists */
-.ez-hl-bad  { color: var(--vf-pink, #ff78a5); }                          /* unknown command / bad sort key */
-.ez-hl-flag { color: var(--vf-lilac, #c9b0ff); }                         /* -r */
-.ez-hl-key  { color: var(--vf-cyan, #a6fff0); }                          /* sort key */
-.ez-hl-dir  { color: var(--vf-blue, #a6c9ff); text-decoration: underline; }    /* existing folder */
-.ez-hl-file { color: var(--vf-yellow, #fff1a8); text-decoration: underline; }  /* existing file */
-.ez-hl-str  { color: var(--vf-peach, #ffd6a6); }                         /* a quoted name */
-.ez-hl-q    { color: var(--vf-peach, #ffd6a6); opacity: 0.6; }           /* the quote marks */
+.ez-hl-cmd  { color: var(--vf-green, var(--mz-green)); }                         /* a command that exists */
+.ez-hl-bad  { color: var(--vf-pink, var(--mz-pink)); }                          /* unknown command / bad sort key */
+.ez-hl-flag { color: var(--vf-lilac, var(--mz-lilac)); }                         /* -r */
+.ez-hl-key  { color: var(--vf-cyan, var(--mz-cyan)); }                          /* sort key */
+.ez-hl-dir  { color: var(--vf-blue, var(--mz-blue)); text-decoration: underline; }    /* existing folder */
+.ez-hl-file { color: var(--vf-yellow, var(--mz-yellow)); text-decoration: underline; }  /* existing file */
+.ez-hl-str  { color: var(--vf-peach, var(--mz-peach)); }                         /* a quoted name */
+.ez-hl-q    { color: var(--vf-peach, var(--mz-peach)); opacity: 0.6; }           /* the quote marks */
 .ez-hl-sep  { opacity: 0.45; }                                           /* the / in a path */
 
 /* example lines in the help page */
@@ -438,7 +514,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.ez-h-exline { color: var(--vf-fg, #e8e8ed); }
+.ez-h-exline { color: var(--vf-fg, var(--mz-fg)); }
 
 /* ═══ the help page ═══
    takes the tree's place (the prompt stays put below it) so it has the whole
@@ -477,7 +553,7 @@
 }
 .ez-h-title {
   text-align: center;
-  color: var(--vf-pink-hi, #ffa6c9);
+  color: var(--vf-pink-hi, var(--mz-pink-hi));
   font-weight: 700;
   letter-spacing: 0.12em;
 }
@@ -486,7 +562,7 @@
   justify-self: end;
   padding: 0 2px;
   cursor: pointer;
-  color: var(--vf-pink, #ff78a5);
+  color: var(--vf-pink, var(--mz-pink));
   opacity: 0.8;
 }
 .ez-h-close:hover { opacity: 1; }
@@ -507,7 +583,7 @@
   margin: 12px 0 6px;
   font-size: 11px;
   letter-spacing: 0.14em;
-  color: var(--vf-peach, #ffd6a6);
+  color: var(--vf-peach, var(--mz-peach));
 }
 .ez-h-section::before,
 .ez-h-section::after {
@@ -534,11 +610,11 @@
 .ez-h-grid > .is-first {
   margin-top: 5px;
   padding-top: 5px;
-  border-top: 1px solid rgba(232, 232, 237, 0.08);
+  border-top: 1px solid var(--mz-rule);
 }
 
-.ez-h-args { color: var(--vf-fg, #e8e8ed); }
-.ez-h-desc { color: var(--vf-fg, #e8e8ed); opacity: 0.6; }
+.ez-h-args { color: var(--vf-fg, var(--mz-fg)); }
+.ez-h-desc { color: var(--vf-fg, var(--mz-fg)); opacity: 0.6; }
 
 /* sort keys: their own little two-column table, hung off a guide line */
 .ez-h-keys {
@@ -551,7 +627,7 @@
   border-left: 1px solid var(--ez-line);
 }
 .ez-h-k  { color: var(--c); }
-.ez-h-kd { color: var(--vf-fg, #e8e8ed); opacity: 0.6; }
+.ez-h-kd { color: var(--vf-fg, var(--mz-fg)); opacity: 0.6; }
 
 /* colour guide: sample in its real colour | meaning */
 .ez-h-tight { margin: 0 0 6px; }
@@ -561,13 +637,13 @@
   row-gap: 3px;
   align-items: baseline;
 }
-.ez-h-sample { color: var(--vf-fg, #e8e8ed); padding-right: 1.5ch; white-space: pre; }
+.ez-h-sample { color: var(--vf-fg, var(--mz-fg)); padding-right: 1.5ch; white-space: pre; }
 
 .ez-h-back {
   margin-top: 14px;
   text-align: center;
   cursor: pointer;
-  color: var(--vf-blue, #a6c9ff);
+  color: var(--vf-blue, var(--mz-blue));
 }
 .ez-h-back:hover { text-decoration: underline; }
 
@@ -582,6 +658,7 @@
   justify-content: center;
   gap: 3px 0;
   width: 36ch;
+  max-width: 100%;
   flex: none;
   margin: 0 auto 6px;
 }
@@ -621,7 +698,7 @@
   user-select: text;
 }
 .ez-root .ez-input::placeholder {
-  color: var(--vf-dim, #6d6d7a);
+  color: var(--vf-dim, var(--mz-dim));
   opacity: 0.8;
 }
 
@@ -662,12 +739,12 @@
   border-radius: 3px;
   background: linear-gradient(
     180deg,
-    var(--vf-pink-hi, #ffa6c9),
-    var(--vf-peach, #ffd6a6),
-    var(--vf-yellow, #fff1a8),
-    var(--vf-green, #c9ffa6),
-    var(--vf-blue, #a6c9ff),
-    var(--vf-lilac, #c9b0ff)
+    var(--vf-pink-hi, var(--mz-f-pink-hi)),
+    var(--vf-peach, var(--mz-f-peach)),
+    var(--vf-yellow, var(--mz-f-yellow)),
+    var(--vf-green, var(--mz-f-green)),
+    var(--vf-blue, var(--mz-f-blue)),
+    var(--vf-lilac, var(--mz-f-lilac))
   );
 }
 /* when the explorer isn't in eza mode, none of this exists */
@@ -693,7 +770,7 @@
   align-items: center;
   justify-content: center;
   background: none;
-  color: var(--vf-pink, #ff78a5);
+  color: var(--vf-pink, var(--mz-pink));
   font-family: var(--vf-mono, "mish mono", ui-monospace, monospace);
   font-size: 13px;
   line-height: 1;

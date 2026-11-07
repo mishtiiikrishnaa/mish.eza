@@ -518,7 +518,7 @@ const mountRainbow = () => {
     stops.forEach(([name, fallback], i) => {
       const stop = document.createElementNS(NS, 'stop');
       stop.setAttribute('offset', String(i / (stops.length - 1)));
-      stop.style.stopColor = 'var(' + name + ', ' + fallback + ')';
+      stop.style.stopColor = 'var(' + name + ', var(' + name.replace('--vf-', '--mz-') + ', ' + fallback + '))';
       grad.appendChild(stop);
     });
 
@@ -855,7 +855,13 @@ module.exports = class MishEza extends Plugin {
     if (pills.vault) segs.push(['ez-path', '~/' + this.app.vault.getName()]);
     if (pills.git && this.branch) segs.push(['ez-git', this.branch, true]);
     if (pills.time) {
-      if (segs.length) segs.push(['ez-ch', '']);   /* the arrow that bridges to the clock */
+      /* the same yellow / green / blue bridge as mish.fastfetch, so both prompts
+         (and so both cards) come out the same width. when the git pill is on it
+         is already yellow, so the bridge starts at green instead. */
+      if (segs.length) {
+        if (!(pills.git && this.branch)) segs.push(['ez-ch ez-ch1', '']);
+        segs.push(['ez-ch ez-ch2', ''], ['ez-ch ez-ch3', '']);
+      }
       segs.push(['ez-clock', '']);
     }
 
