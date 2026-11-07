@@ -20,28 +20,6 @@
 </p>
 
 </div>
-
-## look
-
-no buttons. no icons. no chevrons. just a prompt, a tree and a cursor.
-
-```text
- mishti   my-vault   main   14:07
-❯ eza --tree --all --level=99 .
-.
-├── daily
-│   ├── 2026-11-06.md
-│   └── 2026-11-07.md
-├── ideas
-│   ├── plugin ideas.md
-│   └── someday.md
-└── inbox.md
-
-❯ touch ideas/new█
-```
-
-*(an illustration. the real thing is coloured: one colour per depth, and your own theme can restyle it.)*
-
 ## what you get
 
 | | |
