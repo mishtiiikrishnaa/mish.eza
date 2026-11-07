@@ -274,6 +274,51 @@
 }
 .ez-hl-in { display: inline-block; white-space: pre; }
 
+/* hidden twin of the text, only used to measure where the caret goes */
+.ez-hl-meas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  visibility: hidden;
+  white-space: pre;
+}
+
+/* the caret: same pink block as the fastfetch panel (6px × 12px, blinking) */
+.ez-caret {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  display: none;
+  width: 1ch;
+  height: 12px;
+  overflow: hidden;
+  white-space: pre;
+  line-height: 12px;
+  color: var(--vf-black, #0f0f12);     /* the letter under it, inverted like a terminal */
+  background: var(--vf-pink-hi, #ffa6c9);
+  animation: ez-blink 1.1s steps(1) infinite;
+}
+.ez-inwrap.is-focus .ez-caret { display: block; }
+/* not focused: a hollow block, like a terminal that isn't the active window */
+.ez-inwrap:not(.is-focus) .ez-caret {
+  display: block;
+  color: transparent;
+  background: transparent;
+  outline: 1px solid var(--vf-pink-hi, #ffa6c9);
+  outline-offset: -1px;
+  animation: none;
+  opacity: 0.55;
+}
+.ez-inwrap.has-sel .ez-caret { display: none !important; }
+/* empty prompt: nudge the placeholder right so the block doesn't sit on its first letter */
+.ez-inwrap.is-empty .ez-input { text-indent: 2ch; }
+
+@keyframes ez-blink {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+
 .ez-hl-cmd  { color: var(--vf-green, #c9ffa6); }                         /* a command that exists */
 .ez-hl-bad  { color: var(--vf-pink, #ff78a5); }                          /* unknown command / bad sort key */
 .ez-hl-flag { color: var(--vf-lilac, #c9b0ff); }                         /* -r */
@@ -368,7 +413,7 @@
 /* command | usage + description: two fixed columns so everything lines up */
 .ez-h-grid {
   display: grid;
-  grid-template-columns: 9ch minmax(0, 1fr);
+  grid-template-columns: 11ch minmax(0, 1fr);   /* wide enough for "collapse" to breathe */
   align-items: start;
 }
 .ez-h-cmd {
@@ -400,6 +445,16 @@
 }
 .ez-h-k  { color: var(--c); }
 .ez-h-kd { color: var(--vf-fg, #e8e8ed); opacity: 0.6; }
+
+/* colour guide: sample in its real colour | meaning */
+.ez-h-tight { margin: 0 0 6px; }
+.ez-h-colours {
+  display: grid;
+  grid-template-columns: 13ch minmax(0, 1fr);
+  row-gap: 3px;
+  align-items: baseline;
+}
+.ez-h-sample { color: var(--vf-fg, #e8e8ed); padding-right: 1.5ch; white-space: pre; }
 
 .ez-h-back {
   margin-top: 14px;
@@ -456,7 +511,7 @@
   background: transparent !important;
   font: inherit;
   color: transparent !important;       /* the coloured copy behind it shows instead */
-  caret-color: var(--vf-pink-hi, #ffa6c9);
+  caret-color: transparent;            /* the block caret below replaces it */
   user-select: text;
 }
 .ez-root .ez-input::placeholder {

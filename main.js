@@ -7,7 +7,7 @@
    - colours follow the prompt pills, one colour per depth
    - a little shell at the bottom (type commands, or click them) replaces
      the explorer's button pills. tab completes names.
-       touch mkdir rename mv cp rm/delete sort reveal collapse expand clear help
+       touch mkdir rename mv cp rm/delete sort reveal collapse expand help
    - the prompt grows a git branch and node version when it can find them
    the old explorer is only hidden; "toggle native file explorer" brings it back.
    ═══════════════════════════════════════════════════════════════════════ */
@@ -142,60 +142,71 @@ const KEYS = [
   ['rename', 'rename the open note, or a file in a folder: rename "folder/old" "new name"'],
   ['cp', 'copy the open note'],
   ['delete', 'delete to the system trash: click, then type a name'],
-  ['sort', 'cycle the sort order'],
-  ['reveal', 'find the open note in the tree'],
+  ['sort', 'change how the tree is ordered'],
+  ['reveal', 'jump to the open note in the tree'],
   ['collapse', 'fold every folder'],
   ['expand', 'unfold every folder'],
-  ['clear', 'clear this output'],
-  ['help', 'what every command does'],
+  ['help', 'open the guide: commands, shortcuts and what the colours mean'],
 ];
 
 /* what `help` shows: a full page that takes the tree's place until you close it.
-   sections of entries; each entry = command, pill colour index (matches KEYS),
-   forms as [arguments, description], and an optional key table (sort) */
+   sections of entries; each entry = command, pill colour index (same colour as its
+   clickable word), forms as [arguments, description, example?], and an optional
+   key table (sort). a section with `swatches` is the colour guide instead. */
 const HELP = [
   { title: 'files', items: [
     { cmd: 'touch', c: 0, forms: [
-      ['<name>', 'new note, .md added', 'touch ideas/new'],
+      ['<name>', 'make a note. write folder/name to put it inside a folder. .md is added for you', 'touch ideas/new'],
     ] },
     { cmd: 'mkdir', c: 1, forms: [
-      ['<name>', 'new folder', 'mkdir ideas'],
+      ['<name>', 'make a folder', 'mkdir ideas'],
     ] },
     { cmd: 'rename', c: 2, forms: [
-      ['"<new name>"', 'rename the note you have open', 'rename "better title"'],
-      ['"<folder>/<old>" "<new name>"', 'rename a file inside a folder: give its path first, then just the new name (it stays in that folder)', 'rename "ideas/old" "new name"'],
+      ['"<new name>"', 'rename the note you have open right now', 'rename "better title"'],
+      ['"<folder>/<old>" "<new name>"', 'rename a file inside a folder: its path first, then only the new name. it stays in that folder', 'rename "ideas/old" "new name"'],
     ] },
-    { cmd: 'mv', c: 3, forms: [
+    { cmd: 'mv', c: 2, forms: [
       ['"<from>" "<to>"', 'move a file or folder into another folder', 'mv "ideas/old" archive'],
     ] },
-    { cmd: 'cp', c: 4, forms: [
-      ['[<from>] [<to>]', 'copy · no names = copy the open note'],
+    { cmd: 'cp', c: 3, forms: [
+      ['[<from>] [<to>]', 'copy a file. with no names it copies the note you have open'],
     ] },
-    { cmd: 'rm', c: 5, forms: [
-      ['<name>', 'delete to the system trash (or: delete)', 'rm "ideas/old"'],
-      ['-r <name>', 'needed for a folder that isn\'t empty', 'rm -r ideas'],
+    { cmd: 'rm', c: 4, forms: [
+      ['<name>', 'send a file to the system trash. delete works the same', 'rm "ideas/old"'],
+      ['-r <name>', 'also needed for a folder that still has things inside', 'rm -r ideas'],
     ] },
   ] },
   { title: 'tree', items: [
-    { cmd: 'sort', c: 0,
-      forms: [['[key]', 'order the tree · no key = the next one down']],
+    { cmd: 'sort', c: 5,
+      forms: [['[key]', 'choose how the tree is ordered. with no key it steps to the next order']],
       keys: [
         ['name', 'a to z (the default)'],
-        ['mtime', 'recently edited first'],
-        ['ctime', 'recently created first'],
-        ['size', 'biggest files first'],
-        ['ext', 'grouped by extension'],
+        ['mtime', 'last edited first'],
+        ['ctime', 'newest created first'],
+        ['size', 'biggest first'],
+        ['ext', 'grouped by file type'],
       ] },
-    { cmd: 'reveal', c: 1, forms: [['', 'scroll the tree to the note you have open']] },
-    { cmd: 'collapse', c: 2, forms: [['', 'fold every folder']] },
-    { cmd: 'expand', c: 3, forms: [['', 'unfold every folder']] },
+    { cmd: 'reveal', c: 0, forms: [['', 'jump to the note you have open']] },
+    { cmd: 'collapse', c: 1, forms: [['', 'fold every folder']] },
+    { cmd: 'expand', c: 2, forms: [['', 'unfold every folder']] },
   ] },
-  { title: 'shell', items: [
-    { cmd: 'clear', c: 4, forms: [['', 'wipe the output line']] },
-    { cmd: 'tab', c: 5, forms: [['', 'complete file and command names']] },
-    { cmd: '↑ ↓', c: 0, forms: [['', 'walk through what you typed before']] },
-    { cmd: 'esc', c: 1, forms: [['', 'clear the prompt, or close this page']] },
+  { title: 'keys', items: [
+    { cmd: 'enter', c: 3, forms: [['', 'run what you typed']] },
+    { cmd: 'tab', c: 4, forms: [['', 'finish a name or command for you']] },
+    { cmd: '↑ ↓', c: 5, forms: [['', 'bring back earlier commands']] },
+    { cmd: 'esc', c: 0, forms: [['', 'empty the prompt, or close this guide']] },
   ] },
+  { title: 'colours',
+    note: 'the prompt colours what you type, as you type it',
+    swatches: [
+      ['ez-hl-cmd', 'touch', 'a command that exists'],
+      ['ez-hl-bad', 'tuoch', 'not a command (or a sort key that doesn\'t exist)'],
+      ['ez-hl-flag', '-r', 'a flag'],
+      ['ez-hl-dir', 'ideas', 'a folder that exists'],
+      ['ez-hl-file', 'old', 'a file that exists'],
+      ['ez-hl-str', '"new name"', 'a quoted name (needed when it has spaces)'],
+      ['ez-hl-key', 'mtime', 'a sort key'],
+    ] },
 ];
 
 /* builds the help page as real elements so everything lines up in columns */
@@ -212,10 +223,30 @@ const buildHelp = (close) => {
   head.appendChild(x);
   page.appendChild(head);
 
-  page.appendChild(el('div', 'ez-h-note', 'type below, or click the coloured words'));
+  page.appendChild(el('div', 'ez-h-note', 'type at the prompt below, or click a coloured word. names with spaces need "quotes"'));
 
   HELP.forEach((section) => {
     page.appendChild(el('div', 'ez-h-section', section.title));
+
+    /* the colour guide: a sample in its real colour, then what it means */
+    if (section.swatches) {
+      page.appendChild(el('div', 'ez-h-note ez-h-tight', section.note));
+      const guide = el('div', 'ez-h-colours');
+      section.swatches.forEach(([cls, sample, meaning]) => {
+        const cell = el('div', 'ez-h-sample');
+        if (cls === 'ez-hl-str') {            /* quotes are dimmer than the name inside, like in the prompt */
+          cell.appendChild(el('span', 'ez-hl-q', '"'));
+          cell.appendChild(el('span', cls, sample.slice(1, -1)));
+          cell.appendChild(el('span', 'ez-hl-q', '"'));
+        } else {
+          cell.appendChild(el('span', cls, sample));
+        }
+        guide.appendChild(cell);
+        guide.appendChild(el('div', 'ez-h-desc', meaning));
+      });
+      page.appendChild(guide);
+      return;
+    }
 
     const grid = el('div', 'ez-h-grid');
     section.items.forEach((h, n) => {
@@ -636,6 +667,12 @@ module.exports = class MishEza extends Plugin {
     const hl = el('div', 'ez-hl');
     const hlIn = el('span', 'ez-hl-in');
     hl.appendChild(hlIn);
+    /* the caret is drawn by hand as fastfetch's pink block: a hidden twin of the
+       text measures where it goes, and the character under it is shown inverted */
+    const meas = el('span', 'ez-hl-meas');
+    const caret = el('div', 'ez-caret');
+    hl.appendChild(meas);
+    hl.appendChild(caret);
     wrap.appendChild(hl);
     wrap.appendChild(input);
     line.appendChild(wrap);
@@ -644,6 +681,19 @@ module.exports = class MishEza extends Plugin {
     const paint = () => {
       try { paintLine(hlIn, input.value, (p) => this.lookup(p)); } catch (e) { hlIn.textContent = input.value; }
       hlIn.style.transform = 'translateX(' + (-input.scrollLeft) + 'px)';   /* follow a long line as it scrolls */
+
+      const v = input.value;
+      const pos = input.selectionStart == null ? v.length : input.selectionStart;
+      meas.textContent = v.slice(0, pos);
+      const x = meas.getBoundingClientRect().width - input.scrollLeft;
+      caret.style.transform = 'translate(' + x + 'px, -50%)';
+      caret.textContent = v.charAt(pos);
+      caret.style.animation = 'none';          /* solid while you type, blinking when idle */
+      void caret.offsetWidth;
+      caret.style.animation = '';
+      wrap.classList.toggle('is-empty', !v);
+      wrap.classList.toggle('has-sel', input.selectionStart !== input.selectionEnd);
+      wrap.classList.toggle('is-focus', document.activeElement === input);
     };
     /* catch programmatic changes too (tab completion, history, clicking a command) */
     const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
@@ -652,7 +702,7 @@ module.exports = class MishEza extends Plugin {
       get() { return desc.get.call(this); },
       set(v) { desc.set.call(this, v); paint(); },
     });
-    ['input', 'scroll', 'keyup', 'mouseup', 'focus', 'select'].forEach((ev) => input.addEventListener(ev, paint));
+    ['input', 'scroll', 'keyup', 'mouseup', 'focus', 'blur', 'select'].forEach((ev) => input.addEventListener(ev, paint));
     input.addEventListener('keydown', () => requestAnimationFrame(paint));
     paint();
 
