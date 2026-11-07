@@ -114,10 +114,11 @@ type `help` and the tree is replaced by a full guide: every command, every key, 
 ### light or dark
 
 it follows your theme.
+
 <div align="center">
 <table>
 <tr>
-<td align="center"><img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/panel.png" alt="mish.eza in a dark obsidian theme" width="270"><br><sub>dark</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/dark.png" alt="mish.eza in a dark obsidian theme" width="270"><br><sub>dark</sub></td>
 <td align="center"><img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/light.png" alt="mish.eza in a light obsidian theme" width="270"><br><sub>light</sub></td>
 </tr>
 </table>
