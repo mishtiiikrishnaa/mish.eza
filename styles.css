@@ -456,6 +456,7 @@ body.theme-light {
 }
 .ez-out:empty { display: none; }
 .ez-out.is-bad { color: var(--vf-pink, var(--mz-pink)); }
+.ez-out.is-ask { color: var(--vf-yellow, var(--mz-yellow)); }   /* a y/n question waiting for you */
 
 /* ═══ prompt syntax highlighting ═══
    no bold / letter-spacing here on purpose: the coloured copy must be exactly
@@ -753,6 +754,7 @@ body.theme-light {
   display: none;
   pointer-events: auto;
 }
+.ez-sb.is-on { display: block; }
 .ez-sb-thumb {
   position: absolute;
   top: 0;
@@ -768,6 +770,14 @@ body.theme-light {
     var(--vf-blue, var(--mz-f-blue)),
     var(--vf-lilac, var(--mz-f-lilac))
   );
+}
+/* the hidden svg that holds the rainbow gradient */
+.ez-rainbow-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 /* when the explorer isn't in eza mode, none of this exists */
 .workspace-leaf-content[data-type="file-explorer"]:not(.ez-on) .ez-sb { display: none !important; }

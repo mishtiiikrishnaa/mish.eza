@@ -8,6 +8,7 @@
    - a little shell at the bottom (type commands, or click them) replaces
      the explorer's button pills. tab completes names.
        touch mkdir rename mv cp rm/delete sort reveal collapse expand help
+     rm / delete ask y or n in the prompt itself first (no popup); rm -f skips it.
      it is not a real shell: the words are mapped onto obsidian's own vault
      api. nothing is ever sent to the operating system, and nothing is run.
    - the prompt grows a git branch when the vault is a git repository
@@ -22,6 +23,8 @@ const { Plugin, PluginSettingTab, Setting, Notice, TFolder, TFile, Menu, Keymap,
    it only exists on desktop, which is why the manifest says isDesktopOnly. */
 let nodeOs = null;
 try { nodeOs = require('os'); } catch (e) { nodeOs = null; }
+
+const PLACEHOLDER = 'type a command · help';
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -38,6 +41,7 @@ const DEFAULT_SETTINGS = {
   font: 'bundled',       /* bundled | obsidian | system | family:<name> | custom */
   customFont: '',
   groupDirsFirst: true,  /* like `eza --group-directories-first` */
+  confirmRm: true,       /* rm / delete ask y or n in the prompt first */
   pills: { user: true, vault: true, git: true, time: true },
   show: { command: true, keys: true },
 };
@@ -167,10 +171,10 @@ const rainbowBar = (scroller) => {
   const update = () => {
     const { scrollHeight, clientHeight, scrollTop, offsetTop, offsetHeight } = scroller;
     if (!offsetHeight || scrollHeight <= clientHeight + 1) {
-      sb.style.display = 'none';
+      sb.classList.remove('is-on');
       return;
     }
-    sb.style.display = 'block';
+    sb.classList.add('is-on');
     sb.style.top = offsetTop + 'px';
     sb.style.height = clientHeight + 'px';
     const h = Math.max(24, (clientHeight * clientHeight) / scrollHeight);
@@ -265,8 +269,9 @@ const HELP = [
       ['[<from>] [<to>]', 'copy a file. with no names it copies the note you have open'],
     ] },
     { cmd: 'rm', c: 4, forms: [
-      ['<name>', 'send a file to the system trash. delete works the same', 'rm "ideas/old"'],
+      ['<name>', 'send a file to the system trash. it asks y or n first. delete works the same', 'rm "ideas/old"'],
       ['-r <name>', 'also needed for a folder that still has things inside', 'rm -r ideas'],
+      ['-f <name>', 'skip the y or n question', 'rm -f "ideas/old"'],
     ] },
   ] },
   { title: 'tree', items: [
@@ -287,7 +292,8 @@ const HELP = [
     { cmd: 'enter', c: 3, forms: [['', 'run what you typed']] },
     { cmd: 'tab', c: 4, forms: [['', 'finish a name or command for you']] },
     { cmd: '↑ ↓', c: 5, forms: [['', 'bring back earlier commands']] },
-    { cmd: 'esc', c: 0, forms: [['', 'empty the prompt, or close this guide']] },
+    { cmd: 'y / n', c: 1, forms: [['', 'answer a question the prompt asks (anything but y cancels)']] },
+    { cmd: 'esc', c: 0, forms: [['', 'empty the prompt, cancel a question, or close this guide']] },
   ] },
   { title: 'colours',
     note: 'the prompt colours what you type, as you type it',
@@ -401,6 +407,11 @@ const sorted = (folder, key, groupDirs = true) => [...folder.children].sort((a, 
   return byName(a, b);
 });
 
+/* how many things (files and folders) are inside a folder, all the way down */
+const countInside = (folder) => folder.children.reduce(
+  (n, c) => n + 1 + (c instanceof TFolder ? countInside(c) : 0), 0
+);
+
 /* "mv 'my note' notes" → ['mv', 'my note', 'notes'] */
 const tokenize = (line) => {
   const out = [];
@@ -500,7 +511,7 @@ const mountRainbow = () => {
     svg.setAttribute('width', '0');
     svg.setAttribute('height', '0');
     svg.setAttribute('aria-hidden', 'true');
-    svg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+    svg.classList.add('ez-rainbow-defs');
 
     const defs = document.createElementNS(NS, 'defs');
     const grad = document.createElementNS(NS, 'linearGradient');
@@ -597,6 +608,15 @@ class EzaSettingTab extends PluginSettingTab {
 
     /* ── the shell ── */
     new Setting(containerEl).setName('shell').setHeading();
+    new Setting(containerEl)
+      .setName('ask before deleting')
+      .setDesc('rm and delete ask y or n in the prompt before anything goes to the trash. rm -f skips the question.')
+      .addToggle((toggle) => toggle
+        .setValue(s.confirmRm !== false)
+        .onChange(async (value) => {
+          s.confirmRm = value;
+          await plugin.saveSettings();
+        }));
     flag('show', 'command', 'command line', 'the line that says eza --tree --all, and the dot under it.');
     flag('show', 'keys', 'clickable commands', 'the row of command names you can click (touch, mkdir, rename and so on). you can still type them.');
 
@@ -681,6 +701,7 @@ module.exports = class MishEza extends Plugin {
     this.branch = null;
     this.showNative = false;
     this.history = [];
+    this.pending = null;     /* a y/n question waiting for an answer */
     this.detected = detectIdentity();
 
     /* data.json holds the settings, the folded folders and the sort order */
@@ -713,9 +734,10 @@ module.exports = class MishEza extends Plugin {
     }
 
     /* keeps the clock ticking and re-mounts if the explorer is rebuilt */
+    let beat = 0;
     this.registerInterval(window.setInterval(() => {
-      this.ensure();
       this.tick();
+      if (++beat % 5 === 0) this.ensure();   /* the re-mount check does not need to run every second */
     }, 1000));
 
     this.addCommand({
@@ -942,7 +964,7 @@ module.exports = class MishEza extends Plugin {
 
     const input = el('input', 'ez-input');
     input.type = 'text';
-    input.placeholder = 'type a command · help';
+    input.placeholder = PLACEHOLDER;
     input.spellcheck = false;
     input.setAttribute('autocomplete', 'off');
     input.setAttribute('autocapitalize', 'off');
@@ -965,7 +987,10 @@ module.exports = class MishEza extends Plugin {
     node.appendChild(line);
 
     const paint = () => {
-      try { paintLine(hlIn, input.value, (p) => this.lookup(p)); } catch (e) { hlIn.textContent = input.value; }
+      try {
+        if (this.pending) hlIn.textContent = input.value;    /* answering y/n: not a command, so no red */
+        else paintLine(hlIn, input.value, (p) => this.lookup(p));
+      } catch (e) { hlIn.textContent = input.value; }
       hlIn.style.transform = 'translateX(' + (-input.scrollLeft) + 'px)';   /* follow a long line as it scrolls */
 
       const v = input.value;
@@ -979,7 +1004,7 @@ module.exports = class MishEza extends Plugin {
       caret.style.animation = '';
       wrap.classList.toggle('is-empty', !v);
       wrap.classList.toggle('has-sel', input.selectionStart !== input.selectionEnd);
-      wrap.classList.toggle('is-focus', document.activeElement === input);
+      wrap.classList.toggle('is-focus', input.ownerDocument.activeElement === input);
     };
     /* catch programmatic changes too (tab completion, history, clicking a command) */
     const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
@@ -1132,13 +1157,27 @@ module.exports = class MishEza extends Plugin {
   /* ── the shell ───────────────────────────────────────────────────── */
 
   say(msg, bad) {
+    this.pending = null;   /* new output, or dismissing the line, cancels a waiting y/n question */
     for (const root of this.roots) {
       root.classList.remove('is-help');   /* any output puts the tree back */
       const out = root.__ez.out;
       out.textContent = msg || '';
       out.classList.toggle('is-bad', !!bad);
+      out.classList.remove('is-ask');
+      root.__ez.input.placeholder = PLACEHOLDER;
       out.scrollTop = 0;
     }
+  }
+
+  /* a y/n question asked in the prompt itself, with no popup. the next line you
+     enter is the answer: y or yes goes ahead, anything else (even just enter) cancels. */
+  ask(msg, onYes, label) {
+    this.say(msg);
+    for (const root of this.roots) {
+      root.__ez.out.classList.add('is-ask');
+      root.__ez.input.placeholder = 'y / n';
+    }
+    this.pending = { onYes, label };
   }
 
   /* the help page replaces the tree until closed (esc, ×, or any other command) */
@@ -1153,6 +1192,22 @@ module.exports = class MishEza extends Plugin {
 
   async run(line) {
     const text = line.trim();
+
+    if (this.pending) {
+      const { onYes, label } = this.pending;
+      this.say('');
+      if (!/^(y|yes)$/i.test(text)) {
+        this.say(label + ': cancelled');
+        return;
+      }
+      try {
+        await onYes();
+      } catch (e) {
+        this.say(label + ': ' + (e && e.message ? e.message : e), true);
+      }
+      return;
+    }
+
     if (!text) return;
     this.history.push(text);
 
@@ -1408,9 +1463,11 @@ module.exports = class MishEza extends Plugin {
     this.say('cp: ' + src.path + ' → ' + dest);
   }
 
-  /* rm <name>   (rm -r <folder> when it still has things in it) */
+  /* rm <name>   (rm -r <folder> when it still has things in it, rm -f skips the question) */
   async cmdRm(args) {
-    const recursive = args.some((a) => /^-/.test(a) && /r/i.test(a));
+    const flags = args.filter((a) => /^-/.test(a));
+    const recursive = flags.some((a) => /r/i.test(a));
+    const force = flags.some((a) => /f/i.test(a));
     const rest = args.filter((a) => !/^-/.test(a)).join(' ');
     if (!rest) throw new Error('usage: rm <name>     (rm -r <folder> for a folder with things in it)');
 
@@ -1422,13 +1479,26 @@ module.exports = class MishEza extends Plugin {
     }
 
     const path = item.path;
-    await this.app.vault.trash(item, true);   /* true = the system trash, not obsidian's */
-    for (const p of [...this.open]) {
-      if (p === path || p.startsWith(path + '/')) this.open.delete(p);
+    const trash = async () => {
+      const again = this.app.vault.getAbstractFileByPath(path);   /* it may have changed while the question waited */
+      if (!again) throw new Error(path + ': no such file or directory');
+      await this.app.vault.trash(again, true);   /* true = the system trash, not obsidian's */
+      for (const p of [...this.open]) {
+        if (p === path || p.startsWith(path + '/')) this.open.delete(p);
+      }
+      this.persist();
+      this.renderAll();
+      this.say('rm: ' + path + ' → system trash');
+    };
+
+    if (force || this.settings.confirmRm === false) {
+      await trash();
+      return;
     }
-    this.persist();
-    this.renderAll();
-    this.say('rm: ' + path + ' → system trash');
+
+    const inside = item instanceof TFolder ? countInside(item) : 0;
+    const extra = inside ? ' and ' + inside + (inside === 1 ? ' item' : ' items') + ' inside' : '';
+    this.ask('rm: send "' + path + '"' + extra + ' to the system trash?  [y/N]', trash, 'rm');
   }
 
   cmdSort(rest) {
