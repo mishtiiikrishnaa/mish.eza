@@ -56,40 +56,94 @@ const KEYS = [
   ['help', 'what every command does'],
 ];
 
-/* what `help` prints; short lines so it reads in a narrow sidebar */
+/* what `help` shows: a full page that takes the tree's place until you close it.
+   sections of entries; each entry = command, pill colour index (matches KEYS),
+   forms as [arguments, description], and an optional key table (sort) */
 const HELP = [
-  'type below (tab completes names) or click the coloured words above.',
-  '',
-  'touch <name>',
-  '  new note, .md added.  touch ideas/new',
-  'mkdir <name>',
-  '  new folder.  mkdir ideas',
-  'rename "<new name>"',
-  '  rename the note you have open.',
-  'rename "<from>" "<new name>"',
-  '  rename any file (it stays in its folder).',
-  'mv "<from>" "<to>"',
-  '  move a file or folder into another folder.',
-  'cp [<from>] [<to>]',
-  '  copy. no names = copy the open note.',
-  'rm <name>   (or: delete)',
-  '  delete to the system trash. a folder that',
-  '  isn\'t empty needs  rm -r <name>.',
-  'sort [key]',
-  '  how the tree is ordered:',
-  '    name   a to z (the default)',
-  '    mtime  recently edited first',
-  '    ctime  recently created first',
-  '    size   biggest files first',
-  '    ext    grouped by extension (.md, .png)',
-  '  plain  sort  with no key = the next one down.',
-  'reveal',
-  '  scroll the tree to the note you have open.',
-  'collapse / expand',
-  '  fold or unfold every folder.',
-  'clear',
-  '  wipe this output (esc does too).',
-].join('\n');
+  { title: 'files', items: [
+    { cmd: 'touch', c: 0, forms: [['<name>', 'new note, .md added · touch ideas/new']] },
+    { cmd: 'mkdir', c: 1, forms: [['<name>', 'new folder · mkdir ideas']] },
+    { cmd: 'rename', c: 2, forms: [
+      ['"<new name>"', 'rename the note you have open'],
+      ['"<from>" "<new name>"', 'rename any file, it stays in its folder'],
+    ] },
+    { cmd: 'mv', c: 3, forms: [['"<from>" "<to>"', 'move a file or folder into another folder']] },
+    { cmd: 'cp', c: 4, forms: [['[<from>] [<to>]', 'copy · no names = copy the open note']] },
+    { cmd: 'rm', c: 5, forms: [
+      ['<name>', 'delete to the system trash (or: delete)'],
+      ['-r <name>', 'needed for a folder that isn\'t empty'],
+    ] },
+  ] },
+  { title: 'tree', items: [
+    { cmd: 'sort', c: 0,
+      forms: [['[key]', 'order the tree · no key = the next one down']],
+      keys: [
+        ['name', 'a to z (the default)'],
+        ['mtime', 'recently edited first'],
+        ['ctime', 'recently created first'],
+        ['size', 'biggest files first'],
+        ['ext', 'grouped by extension'],
+      ] },
+    { cmd: 'reveal', c: 1, forms: [['', 'scroll the tree to the note you have open']] },
+    { cmd: 'collapse', c: 2, forms: [['', 'fold every folder']] },
+    { cmd: 'expand', c: 3, forms: [['', 'unfold every folder']] },
+  ] },
+  { title: 'shell', items: [
+    { cmd: 'clear', c: 4, forms: [['', 'wipe the output line']] },
+    { cmd: 'tab', c: 5, forms: [['', 'complete file and command names']] },
+    { cmd: '↑ ↓', c: 0, forms: [['', 'walk through what you typed before']] },
+    { cmd: 'esc', c: 1, forms: [['', 'clear the prompt, or close this page']] },
+  ] },
+];
+
+/* builds the help page as real elements so everything lines up in columns */
+const buildHelp = (close) => {
+  const page = document.createDocumentFragment();
+
+  /* sticky header: title dead centre, close button on the right */
+  const head = el('div', 'ez-h-head');
+  head.appendChild(el('span', 'ez-h-side'));
+  head.appendChild(el('span', 'ez-h-title', 'help'));
+  const x = el('span', 'ez-h-close ez-h-side', '✕');
+  x.title = 'back to the tree (esc)';
+  x.addEventListener('click', close);
+  head.appendChild(x);
+  page.appendChild(head);
+
+  page.appendChild(el('div', 'ez-h-note', 'type below, or click the coloured words'));
+
+  HELP.forEach((section) => {
+    page.appendChild(el('div', 'ez-h-section', section.title));
+
+    const grid = el('div', 'ez-h-grid');
+    section.items.forEach((h, n) => {
+      h.forms.forEach(([args, desc], i) => {
+        const first = i === 0 && n > 0 ? ' is-first' : '';
+        const name = el('div', 'ez-h-cmd ez-c' + h.c + first, i === 0 ? h.cmd : '');
+        const body = el('div', 'ez-h-body' + first);
+        if (args) body.appendChild(el('div', 'ez-h-args', args));
+        body.appendChild(el('div', 'ez-h-desc', desc));
+
+        if (h.keys && i === h.forms.length - 1) {
+          const table = el('div', 'ez-h-keys');
+          h.keys.forEach(([k, d], j) => {
+            table.appendChild(el('span', 'ez-h-k ez-c' + j, k));
+            table.appendChild(el('span', 'ez-h-kd', d));
+          });
+          body.appendChild(table);
+        }
+        grid.appendChild(name);
+        grid.appendChild(body);
+      });
+    });
+    page.appendChild(grid);
+  });
+
+  const back = el('div', 'ez-h-back', '← back to the tree');
+  back.addEventListener('click', close);
+  page.appendChild(back);
+  return page;
+};
 
 const byName = (a, b) =>
   a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
@@ -338,10 +392,13 @@ module.exports = class MishEza extends Plugin {
     const tree = el('div', 'ez-tree');
     scroll.appendChild(tree);
 
+    const help = el('div', 'ez-helppage');   /* shown instead of the tree while help is open */
+    root.appendChild(help);
+
     const foot = this.buildFoot(root);
     root.appendChild(foot.node);
 
-    root.__ez = { bar, tree, arg, clock: null, input: foot.input, out: foot.out };
+    root.__ez = { bar, tree, arg, help, clock: null, input: foot.input, out: foot.out };
     this.drawBar(root);
     this.bind(root, tree);
     return root;
@@ -542,10 +599,21 @@ module.exports = class MishEza extends Plugin {
 
   say(msg, bad) {
     for (const root of this.roots) {
+      root.classList.remove('is-help');   /* any output puts the tree back */
       const out = root.__ez.out;
       out.textContent = msg || '';
       out.classList.toggle('is-bad', !!bad);
       out.scrollTop = 0;
+    }
+  }
+
+  /* the help page replaces the tree until closed (esc, ✕, or any other command) */
+  openHelp() {
+    for (const root of this.roots) {
+      const page = root.__ez.help;
+      page.replaceChildren(buildHelp(() => this.say('')));
+      root.classList.add('is-help');
+      page.scrollTop = 0;
     }
   }
 
@@ -572,7 +640,7 @@ module.exports = class MishEza extends Plugin {
         case 'collapse': this.open.clear(); this.renderAll(); this.persist(); break;
         case 'expand': this.cmdExpand(); break;
         case 'clear': break;
-        case 'help': this.say(HELP); break;
+        case 'help': this.openHelp(); break;
         default:
           this.say('zsh: command not found: ' + cmd + '   (try: help)', true);
       }
