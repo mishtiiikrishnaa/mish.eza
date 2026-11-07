@@ -16,32 +16,10 @@
 [look](#look) · [what you get](#what-you-get) · [tour](#a-quick-tour) · [commands](#commands) · [install](#install) · [settings](#settings) · [is it safe?](#is-it-safe) · [fonts](#fonts) · [faq](#faq)
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/panel.png" alt="the mish.eza panel: a starship prompt above an eza-style file tree" width="460">
+  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/panel.png" alt="the mish.eza panel: a starship prompt above an eza-style file tree" width="200">
 </p>
 
 </div>
-
-## look
-
-no buttons. no icons. no chevrons. just a prompt, a tree and a cursor.
-
-```text
- mishti   my-vault   main   14:07
-❯ eza --tree --all --level=99 .
-.
-├── daily
-│   ├── 2026-11-06.md
-│   └── 2026-11-07.md
-├── ideas
-│   ├── plugin ideas.md
-│   └── someday.md
-└── inbox.md
-
-❯ touch ideas/new█
-```
-
-*(an illustration. the real thing is coloured: one colour per depth, and your own theme can restyle it.)*
-
 ## what you get
 
 | | |
@@ -61,7 +39,7 @@ desktop only.
 type a command, or click its name. what you type is coloured as you type it: green for a command that exists, pink for one that doesn't, and your own folders and files light up when they're real.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/commands.png" alt="mish.eza with a few commands typed into its little shell" width="720">
+  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/commands.png" alt="mish.eza with a few commands typed into its little shell" width="200">
 </p>
 
 ### it asks before it deletes
@@ -69,7 +47,7 @@ type a command, or click its name. what you type is coloured as you type it: gre
 `rm` and `delete` don't just do it. the prompt asks you, right there in the shell: no popup, no dialog. type `y` to go ahead. anything else cancels, even just enter.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/confirm.png" alt="the prompt asking: rm: send ideas/old.md to the system trash? [y/N]" width="720">
+  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/confirm.png" alt="the prompt asking: rm: send ideas/old.md to the system trash? [y/N]" width="200">
 </p>
 
 and even after a `y`, it goes to your **system trash**, so you can still fish it back out.
@@ -79,7 +57,7 @@ and even after a `y`, it goes to your **system trash**, so you can still fish it
 type `help` and the tree is replaced by a full guide: every command, every key, and what each colour means. `esc` brings the tree back.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/help.png" alt="the mish.eza help page listing commands, keys and colours" width="460">
+  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/help.png" alt="the mish.eza help page listing commands, keys and colours" width="200">
 </p>
 
 ### light or dark
@@ -87,7 +65,7 @@ type `help` and the tree is replaced by a full guide: every command, every key, 
 it follows your theme.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/light.png" alt="mish.eza in a light obsidian theme" width="460">
+  <img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/light.png" alt="mish.eza in a light obsidian theme" width="200">
 </p>
 
 ## commands
