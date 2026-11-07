@@ -120,7 +120,9 @@ const fontStack = (cfg) => {
 /* ── keep the whole vault name visible ───────────────────────────────────
    the orange path pill never truncates. when the prompt is wider than the
    room it has, the whole bar is scaled down just enough to fit (css zoom),
-   and is re-fitted whenever the pane resizes. only below half size does the
+   and is re-fitted whenever the pane resizes. (the card is as wide as this bar,
+   so normally it fits at full size and the card just moves when the sidebar
+   resizes; this only kicks in when the sidebar is narrower than the bar.) only below half size does the
    pill start to ellipsise instead. */
 const fitBar = (bar, watch) => {
   const FLOOR = 0.5;
@@ -131,7 +133,7 @@ const fitBar = (bar, watch) => {
     bar.style.zoom = '';                       /* measure at natural size */
     const have = bar.clientWidth;
     const need = bar.scrollWidth;
-    if (!have || need <= have) return;         /* fits (or is hidden): leave it alone */
+    if (!have || need <= have + 1) return;     /* fits (or is hidden): leave it alone */
     let k = have / need;
     if (k < FLOOR) { k = FLOOR; bar.classList.add('is-squeezed'); }
     bar.style.zoom = String(k);
@@ -829,7 +831,7 @@ module.exports = class MishEza extends Plugin {
     const foot = this.buildFoot(root);
     card.appendChild(foot.node);             /* the shell line lives inside the card too */
 
-    const fit = fitBar(bar, [card, scroll]);   /* keeps the full vault name on screen */
+    const fit = fitBar(bar, [root, card, scroll]);   /* keeps the full vault name on screen; root is watched too, because the card no longer grows with the pane */
     root.__ez = { card, bar, tree, arg, help, fit, cmd, dot, keys: foot.keys, clock: null, input: foot.input, out: foot.out };
     rainbowBar(scroll);
     rainbowBar(help);
