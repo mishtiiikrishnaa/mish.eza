@@ -1,20 +1,54 @@
+<div align="center">
+
 # mish.eza
 
-an [obsidian](https://obsidian.md) plugin that turns the file explorer into a terminal: a starship-style prompt, a real `eza --tree` listing coloured by depth, and a tiny command line (`touch`, `mkdir`, `rename`, `mv`, `cp`, `rm` and friends) in place of the explorer's buttons.
+**your obsidian file explorer, as `eza --tree` under a starship prompt.**
+
+![release](https://img.shields.io/github/v/release/mishtiiikrishnaa/mish.eza?style=flat-square&color=ffa6c9&labelColor=1a1a1a)
+![licence](https://img.shields.io/github/license/mishtiiikrishnaa/mish.eza?style=flat-square&color=ffa6c9&labelColor=1a1a1a)
+![obsidian](https://img.shields.io/badge/obsidian-1.5.0%2B-ffa6c9?style=flat-square&labelColor=1a1a1a)
+![desktop only](https://img.shields.io/badge/desktop-only-ffa6c9?style=flat-square&labelColor=1a1a1a)
+![network](https://img.shields.io/badge/network-none-ffa6c9?style=flat-square&labelColor=1a1a1a)
+
+[what you get](#what-you-get) · [commands](#commands) · [install](#install) · [settings](#settings) · [privacy](#what-it-runs-on-your-computer) · [fonts](#fonts) · [faq](#faq)
 
 <!--
-screenshot: drag a png into any github issue or pull request comment box (do not submit it), copy the
-https://github.com/user-attachments/... link it makes, and paste it on the next line as ![the panel](that-link)
+HERO IMAGE: drag a png into any github issue or pull request comment box (do not submit it),
+copy the https://github.com/user-attachments/... link it makes, delete this comment, and put:
+
+<img src="THE-LINK" alt="the mish.eza panel" width="420">
+
 no image file needs to live in this repository.
 -->
 
-desktop only.
+</div>
+
+a starship-style prompt, a real `eza --tree` listing coloured by depth, and a tiny command line (`touch`, `mkdir`, `rename`, `mv`, `cp`, `rm` and friends) in place of the explorer's buttons. a sketch of what the panel draws (the real thing is coloured):
+
+```text
+ mishti   my-vault   main   18:13
+❯ eza --tree --all --level=99 .
+.
+├── daily
+│   ├── 2026-11-06.md
+│   └── 2026-11-07.md
+├── poems
+│   └── ode to a teacup.md
+└── readme.md
+
+❯ touch  mkdir  rename  mv  cp  rm  sort  help
+```
 
 ## what you get
 
 - **a prompt**: pills for your user name (with a logo for your operating system), the vault, the git branch (when the vault is a git repository) and the time.
 - **a real tree**: `├──`, `└──` and `│` lines, one colour per depth. click a folder to fold or unfold it, click a note to open it (cmd/ctrl-click for a new tab). right-click a row for obsidian's usual file menu.
 - **a little shell** under the tree. type a command, or click its name. tab completes names, up and down bring back earlier lines, and what you type is coloured as you type it. `help` opens a full guide.
+- **nothing to install but the plugin**: the font and the icons are bundled.
+
+desktop only.
+
+## commands
 
 | command | what it does |
 | --- | --- |
@@ -30,13 +64,15 @@ desktop only.
 
 names with spaces need "quotes". the original explorer is only hidden: run **toggle native file explorer** from the command palette to bring it back, and **redraw the prompt** if the panel ever goes missing.
 
+> **careful:** `rm` and `delete` send things to the system trash and do **not** ask first. you can fish them back out, but mind your fingers.
+
 ## install
 
+**with [brat](https://github.com/TfTHacker/obsidian42-brat)** (works today): add the beta plugin `mishtiiikrishnaa/mish.eza`.
+
+**by hand:** download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/mishtiiikrishnaa/mish.eza/releases/latest) into `<your vault>/.obsidian/plugins/mish-eza/`, reload obsidian, and switch the plugin on.
+
 **from obsidian** (once it is listed): settings → community plugins → browse → search for `mish.eza`.
-
-**with [brat](https://github.com/TfTHacker/obsidian42-brat)**: add `mishtiiikrishnaa/mish.eza` as a beta plugin.
-
-**by hand**: download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/mishtiiikrishnaa/mish.eza/releases/latest) into `<your vault>/.obsidian/plugins/mish-eza/`, reload obsidian, and switch the plugin on.
 
 ## settings
 
@@ -46,13 +82,14 @@ everything applies live, with no reload.
 - **prompt**: show or hide the user, vault, git and time pills.
 - **tree**: folders first, or plain a to z.
 - **shell**: show or hide the `eza --tree` line and the row of clickable commands.
-- **appearance**: pick the font. the default is bundled, so nothing needs installing. you can also use obsidian's monospace font, your system monospace, any common monospace font found on your computer, or your own css font list. the **scan** button asks the browser for the monospace fonts you have installed (it may ask permission).
+- **appearance**: pick the font (see [fonts](#fonts)). the **scan** button asks the browser for the monospace fonts you have installed (it may ask permission).
 
 ## what it runs on your computer
 
 **no commands and no network.** the little shell is not a real shell. what you type is read by the plugin and mapped onto obsidian's own file functions. nothing is ever sent to your operating system, no program is started, and nothing is downloaded or uploaded.
 
-what it does touch:
+<details>
+<summary>exactly what it touches</summary>
 
 | what | how | why |
 | --- | --- | --- |
@@ -63,7 +100,9 @@ what it does touch:
 | your installed fonts | `window.queryLocalFonts()`, only when you press **scan** | the font menu. the browser asks permission first. the names stay in memory and are not saved or sent anywhere |
 | `data.json` in the plugin folder | obsidian's `saveData` | your settings, which folders are unfolded, and the sort order |
 
-what it changes, and only when you run the command: `touch`, `mkdir`, `rename`, `mv` and `cp` create, rename, move or copy things in your vault (obsidian updates links when something is renamed or moved). `rm` and `delete` send things to the **system trash** and do **not** ask first. you can fish them back out, but be careful.
+what it changes, and only when you run the command: `touch`, `mkdir`, `rename`, `mv` and `cp` create, rename, move or copy things in your vault (obsidian updates links when something is renamed or moved). `rm` and `delete` send things to the system trash.
+
+</details>
 
 you can check the claim yourself. this finds nothing:
 
@@ -77,13 +116,49 @@ obsidian has no api for replacing the file explorer, so the plugin does it the o
 
 ## fonts
 
-the default font and the logos are embedded in `styles.css`, so they work on any machine.
+the default font and the logos are embedded in `styles.css`, so they work on any machine, with nothing to install.
 
 - **cmu typewriter text**, SIL Open Font License 1.1, as a subset embedded under the name "mish mono".
 - six glyphs from **symbols nerd font mono**, embedded as "mish icons" (the three operating system logos come from Font Awesome, CC BY 4.0, and the clock from Octicons, MIT).
 
-the subset covers latin letters, digits and common punctuation. a file name in another script is drawn with your system's monospace font instead. the tree lines themselves are drawn with css, so they never depend on the font. full licence details are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+the subset covers latin letters, digits and common punctuation. a file name in another script is drawn with your system's monospace font instead. the tree lines themselves are drawn with css, so they never depend on the font. you can also pick obsidian's monospace font, your system monospace, any common monospace font found on your computer, or your own css font list.
+
+## faq
+
+<details>
+<summary>can i get the normal file explorer back?</summary>
+
+yes. run **toggle native file explorer** from the command palette. turning the plugin off restores it too.
+
+</details>
+
+<details>
+<summary>does it delete my notes?</summary>
+
+only when you type `rm` or `delete` yourself, and then they go to the system trash.
+
+</details>
+
+<details>
+<summary>why is it desktop only?</summary>
+
+it reads your user name with node's `os` module, which exists on desktop obsidian only.
+
+</details>
+
+<details>
+<summary>can a theme restyle it?</summary>
+
+yes. a theme or snippet can set the `--vf-*` css variables (for example `--vf-pink` and `--vf-mono`); each has a default.
+
+</details>
 
 ## licence
 
 the plugin's own code is [MIT](LICENSE), (c) 2026 mishti. the embedded fonts keep their own licences: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the [`licenses/`](licenses) folder.
+
+<div align="center">
+
+made by [mishti](https://github.com/mishtiiikrishnaa)
+
+</div>
