@@ -6,12 +6,13 @@
 
 *the sidebar you stare at all day, rebuilt as a terminal.*
 
-![release](https://img.shields.io/github/v/release/mishtiiikrishnaa/mish.eza?style=flat-square&color=ffa6c9&labelColor=1a1a1a)
-![licence](https://img.shields.io/github/license/mishtiiikrishnaa/mish.eza?style=flat-square&color=ffa6c9&labelColor=1a1a1a)
-![obsidian](https://img.shields.io/badge/obsidian-1.5.0%2B-ffa6c9?style=flat-square&labelColor=1a1a1a)
-![desktop only](https://img.shields.io/badge/desktop-only-ffa6c9?style=flat-square&labelColor=1a1a1a)
-![network](https://img.shields.io/badge/network-none-ffa6c9?style=flat-square&labelColor=1a1a1a)
-![commands run](https://img.shields.io/badge/system%20commands-none-ffa6c9?style=flat-square&labelColor=1a1a1a)
+<p align="center">
+  <a href="https://github.com/mishtiiikrishnaa/mish.eza/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/mishtiiikrishnaa/mish.eza?style=flat-square&color=ffa6c9&labelColor=1a1a1a&logo=obsidian&logoColor=ffa6c9&v=1"></a>
+  <a href="https://github.com/mishtiiikrishnaa/mish.eza/blob/main/LICENSE"><img alt="licence" src="https://img.shields.io/github/license/mishtiiikrishnaa/mish.eza?style=flat-square&color=ffa6c9&labelColor=1a1a1a&label=licence"></a>
+  <a href="https://github.com/mishtiiikrishnaa/mish.eza/releases"><img alt="downloads" src="https://img.shields.io/github/downloads/mishtiiikrishnaa/mish.eza/total?style=flat-square&color=ffa6c9&labelColor=1a1a1a"></a>
+  <img alt="obsidian" src="https://img.shields.io/badge/obsidian-1.15.0%2B-ffa6c9?style=flat-square&labelColor=1a1a1a">
+  <img alt="desktop only" src="https://img.shields.io/badge/desktop-only-ffa6c9?style=flat-square&labelColor=1a1a1a">
+</p>
 
 [look](#look) · [what you get](#what-you-get) · [tour](#a-quick-tour) · [commands](#commands) · [install](#install) · [settings](#settings) · [is it safe?](#is-it-safe) · [fonts](#fonts) · [faq](#faq)
 
