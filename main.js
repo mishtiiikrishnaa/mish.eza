@@ -6,13 +6,13 @@
    file explorer: real ├── └── │ lines, click to open/fold.
    - colours follow the prompt pills, one colour per depth
    - a little shell at the bottom (type commands, or click them) replaces
-     the explorer's button pills: touch mkdir rm mv cd pwd sort reveal
-     collapse expand clear help
+     the explorer's button pills. tab completes names.
+       touch mkdir rename mv cp rm/delete sort reveal collapse expand clear help
    - the prompt grows a git branch and node version when it can find them
    the old explorer is only hidden; "toggle native file explorer" brings it back.
    ═══════════════════════════════════════════════════════════════════════ */
 
-const { Plugin, Modal, TFolder, TFile, Menu, Keymap, Platform } = require('obsidian');
+const { Plugin, TFolder, TFile, Menu, Keymap, Platform } = require('obsidian');
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -31,15 +31,65 @@ const COLOURS = 6;
 
 const SORTS = ['name', 'mtime', 'ctime', 'size', 'ext'];
 
+/* every command the prompt understands (tab completes these too) */
+const COMMANDS = [
+  'touch', 'mkdir', 'rename', 'mv', 'cp', 'rm', 'delete',
+  'sort', 'reveal', 'collapse', 'expand', 'clear', 'help',
+];
+/* commands whose arguments are file names (tab completes those) */
+const PATH_CMDS = new Set(['touch', 'mkdir', 'rename', 'mv', 'cp', 'rm', 'delete']);
+/* commands that take two names, so names with spaces need quotes */
+const MULTI_CMDS = new Set(['rename', 'mv', 'cp']);
+
 /* the clickable "aliases" above the prompt, in pill-colour order */
 const KEYS = [
   ['touch', 'new note: click, then type a name'],
   ['mkdir', 'new folder: click, then type a name'],
+  ['rename', 'rename the open note: click, then type the new name'],
+  ['cp', 'copy the open note'],
+  ['delete', 'delete to the system trash: click, then type a name'],
   ['sort', 'cycle the sort order'],
   ['reveal', 'find the open note in the tree'],
   ['collapse', 'fold every folder'],
   ['expand', 'unfold every folder'],
+  ['clear', 'clear this output'],
+  ['help', 'what every command does'],
 ];
+
+/* what `help` prints; short lines so it reads in a narrow sidebar */
+const HELP = [
+  'type below (tab completes names) or click the coloured words above.',
+  '',
+  'touch <name>',
+  '  new note, .md added.  touch ideas/new',
+  'mkdir <name>',
+  '  new folder.  mkdir ideas',
+  'rename "<new name>"',
+  '  rename the note you have open.',
+  'rename "<from>" "<new name>"',
+  '  rename any file (it stays in its folder).',
+  'mv "<from>" "<to>"',
+  '  move a file or folder into another folder.',
+  'cp [<from>] [<to>]',
+  '  copy. no names = copy the open note.',
+  'rm <name>   (or: delete)',
+  '  delete to the system trash. a folder that',
+  '  isn\'t empty needs  rm -r <name>.',
+  'sort [key]',
+  '  how the tree is ordered:',
+  '    name   a to z (the default)',
+  '    mtime  recently edited first',
+  '    ctime  recently created first',
+  '    size   biggest files first',
+  '    ext    grouped by extension (.md, .png)',
+  '  plain  sort  with no key = the next one down.',
+  'reveal',
+  '  scroll the tree to the note you have open.',
+  'collapse / expand',
+  '  fold or unfold every folder.',
+  'clear',
+  '  wipe this output (esc does too).',
+].join('\n');
 
 const byName = (a, b) =>
   a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
@@ -78,6 +128,16 @@ const parentOf = (path) => {
 };
 
 const hasExt = (path) => /\.[^/.]+$/.test(path);
+
+const commonPrefix = (list) => {
+  let prefix = list[0] || '';
+  for (const s of list) {
+    let i = 0;
+    while (i < prefix.length && i < s.length && prefix[i].toLowerCase() === s[i].toLowerCase()) i++;
+    prefix = prefix.slice(0, i);
+  }
+  return prefix;
+};
 
 /* ── rainbow gradient for our own icons ──────────────────────────────────
    a hidden svg holds the gradient; styles.css points `stroke` at it.
@@ -130,60 +190,6 @@ const unmountRainbow = () => {
   else svg.dataset.users = String(left);
 };
 
-/* "are you sure" for deleting a folder that still has things in it */
-class ConfirmModal extends Modal {
-  constructor(app, text, onYes) {
-    super(app);
-    this.text = text;
-    this.onYes = onYes;
-  }
-
-  onOpen() {
-    this.contentEl.createEl('p', { text: this.text });
-    const row = this.contentEl.createDiv({ cls: 'modal-button-container' });
-    row.createEl('button', { text: 'cancel' }).addEventListener('click', () => this.close());
-    const yes = row.createEl('button', { text: 'move to trash', cls: 'mod-warning' });
-    yes.addEventListener('click', () => {
-      this.close();
-      this.onYes();
-    });
-  }
-
-  onClose() {
-    this.contentEl.empty();
-  }
-}
-
-/* what `help` prints; two lines per command so it reads in a narrow sidebar */
-const HELP = [
-  'commands: type them below, or click the coloured ones.',
-  'right-click any row for open / copy / rename / delete.',
-  '',
-  'touch <name>',
-  '  new note, .md added.  touch ideas/new',
-  'mkdir <name>',
-  '  new folder.  mkdir ideas',
-  'rm <name>   (or: delete)',
-  '  delete: goes to obsidian\'s trash.',
-  'mv <from> <to>   (or: rename)',
-  '  rename or move. quote names with spaces:',
-  '  mv "old name" "new name"',
-  'cd <folder>',
-  '  go into a folder; touch / mkdir then work',
-  '  there. .. and ~ work too.',
-  'pwd',
-  '  print the current folder.',
-  'sort [key]',
-  '  name | mtime | ctime | size | ext. no key',
-  '  cycles to the next one.',
-  'reveal',
-  '  find the open note in the tree.',
-  'collapse / expand',
-  '  fold or unfold every folder.',
-  'clear',
-  '  wipe this output.',
-].join('\n');
-
 module.exports = class MishEza extends Plugin {
   async onload() {
     mountRainbow();
@@ -191,7 +197,6 @@ module.exports = class MishEza extends Plugin {
     this.branch = null;
     this.node = null;
     this.showNative = false;
-    this.cwd = '';
     this.history = [];
 
     const saved = (await this.loadData()) || {};
@@ -311,6 +316,7 @@ module.exports = class MishEza extends Plugin {
     const root = el('div', 'ez-root');
     const scroll = el('div', 'ez-scroll');   /* header + tree scroll; the shell stays put */
     root.appendChild(scroll);
+
     const bar = el('div', 'ez-bar');
     scroll.appendChild(bar);
 
@@ -335,7 +341,7 @@ module.exports = class MishEza extends Plugin {
     const foot = this.buildFoot(root);
     root.appendChild(foot.node);
 
-    root.__ez = { bar, tree, arg, clock: null, input: foot.input, cwd: foot.cwd, out: foot.out };
+    root.__ez = { bar, tree, arg, clock: null, input: foot.input, out: foot.out };
     this.drawBar(root);
     this.bind(root, tree);
     return root;
@@ -368,7 +374,10 @@ module.exports = class MishEza extends Plugin {
   /* the little shell: clickable commands + a real prompt you can type in */
   buildFoot(root) {
     const node = el('div', 'ez-foot');
+
     const out = el('div', 'ez-out');
+    out.title = 'click to dismiss';
+    out.addEventListener('click', () => this.say(''));
     node.appendChild(out);
 
     const keys = el('div', 'ez-keys');
@@ -381,8 +390,6 @@ module.exports = class MishEza extends Plugin {
     node.appendChild(keys);
 
     const line = el('div', 'ez-line');
-    const cwd = el('span', 'ez-cwd', this.cwdLabel());
-    line.appendChild(cwd);
     line.appendChild(el('span', 'ez-chev', '❯'));
 
     const input = el('input', 'ez-input');
@@ -394,7 +401,7 @@ module.exports = class MishEza extends Plugin {
     line.appendChild(input);
     node.appendChild(line);
 
-    /* enter runs, up/down walk the history, escape clears */
+    /* enter runs, tab completes, up/down walk the history, escape clears */
     let at = -1;
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
@@ -403,6 +410,9 @@ module.exports = class MishEza extends Plugin {
         input.value = '';
         at = -1;
         this.run(value);
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        this.complete(input);
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (!this.history.length) return;
@@ -415,19 +425,25 @@ module.exports = class MishEza extends Plugin {
       } else if (e.key === 'Escape') {
         input.value = '';
         at = -1;
+        this.say('');
         input.blur();
       }
     });
 
-    return { node, input, cwd, out };
+    return { node, input, out };
   }
 
-  /* clicking a command: names need typing, everything else just runs */
+  /* clicking a command: ones that need a name get typed into the prompt,
+     everything else just runs */
   press(cmd, root) {
-    if (cmd === 'touch' || cmd === 'mkdir') {
-      const input = root.__ez.input;
+    const input = root.__ez.input;
+    if (cmd === 'touch' || cmd === 'mkdir' || cmd === 'delete') {
       input.value = cmd + ' ';
       input.focus();
+    } else if (cmd === 'rename') {
+      input.value = 'rename ""';          /* cursor goes between the quotes */
+      input.focus();
+      input.setSelectionRange(8, 8);
     } else {
       this.run(cmd);
     }
@@ -441,7 +457,6 @@ module.exports = class MishEza extends Plugin {
 
     root.__ez.arg.textContent =
       '--tree --all --level=99' + (this.sortKey !== 'name' ? ' --sort=' + this.sortKey : '');
-    root.__ez.cwd.textContent = this.cwdLabel();
     this.markActive();
   }
 
@@ -493,7 +508,6 @@ module.exports = class MishEza extends Plugin {
 
   bind(root, tree) {
     tree.addEventListener('click', (e) => {
-      if (e.target.closest('.ez-rename')) return;
       const row = e.target.closest('.ez-row');
       if (!row) return;
       const item = this.app.vault.getAbstractFileByPath(row.dataset.path);
@@ -509,196 +523,29 @@ module.exports = class MishEza extends Plugin {
       }
     });
 
+    /* right-click a row: obsidian's own file menu (copy path, reveal in finder, ...).
+       renaming, deleting and the rest live in the shell. */
     root.addEventListener('contextmenu', (e) => {
-      if (e.target.closest('.ez-foot') || e.target.closest('.ez-rename')) return;   /* their own menus */
-      e.preventDefault();
+      if (e.target.closest('.ez-foot')) return;   /* the prompt keeps its own menu */
       const row = e.target.closest('.ez-row');
       const item = row ? this.app.vault.getAbstractFileByPath(row.dataset.path) : null;
+      if (!item) return;
+
+      e.preventDefault();
       const menu = new Menu();
-      const ws = this.app.workspace;
-
-      if (item instanceof TFile) {
-        menu.addItem((i) => i.setTitle('Open in new tab').setIcon('file-plus')
-          .onClick(() => ws.getLeaf('tab').openFile(item)));
-        menu.addItem((i) => i.setTitle('Open to the right').setIcon('separator-vertical')
-          .onClick(() => ws.getLeaf('split', 'vertical').openFile(item)));
-        menu.addSeparator();
-        menu.addItem((i) => i.setTitle('Make a copy').setIcon('copy')
-          .onClick(() => this.guard('copy', this.copyFile(item))));
-        menu.addSeparator();
-      } else if (item instanceof TFolder) {
-        menu.addItem((i) => i.setTitle('New note').setIcon('edit')
-          .onClick(() => this.guard('touch', this.create(item, 'note'))));
-        menu.addItem((i) => i.setTitle('New folder').setIcon('folder-plus')
-          .onClick(() => this.guard('mkdir', this.create(item, 'folder'))));
-        menu.addSeparator();
-      }
-
-      if (item) {
-        /* obsidian's own file menu: move, copy path, reveal in finder, etc.
-           (rename and delete are added by the core explorer, not by this event,
-           which is why we add them ourselves) */
-        ws.trigger('file-menu', menu, item, 'file-explorer-context-menu');
-        menu.addSeparator();
-        menu.addItem((i) => i.setTitle('Rename…').setIcon('pencil')
-          .onClick(() => this.startRename(item)));
-        menu.addItem((i) => i.setTitle('Delete').setIcon('trash-2').setWarning(true)
-          .onClick(() => this.confirmDelete(item)));
-      } else {
-        const vaultRoot = this.app.vault.getRoot();
-        menu.addItem((i) => i.setTitle('New note').setIcon('edit')
-          .onClick(() => this.guard('touch', this.create(vaultRoot, 'note'))));
-        menu.addItem((i) => i.setTitle('New folder').setIcon('folder-plus')
-          .onClick(() => this.guard('mkdir', this.create(vaultRoot, 'folder'))));
-      }
+      this.app.workspace.trigger('file-menu', menu, item, 'file-explorer-context-menu');
       menu.showAtMouseEvent(e);
     });
   }
 
-  /* runs an async action from a menu and reports failures in the shell */
-  guard(label, promise) {
-    return Promise.resolve(promise).catch((err) =>
-      this.say(label + ': ' + (err && err.message ? err.message : err), true));
-  }
-
-  /* inline rename: the row's name turns into a text box */
-  startRename(item) {
-    for (const root of this.roots) {
-      const row = [...root.__ez.tree.querySelectorAll('.ez-row')]
-        .find((r) => r.dataset.path === item.path);
-      if (!row) continue;
-
-      const name = row.querySelector('.ez-name');
-      const input = el('input', 'ez-rename');
-      input.type = 'text';
-      input.value = item.name;
-      input.spellcheck = false;
-      name.style.display = 'none';
-      row.appendChild(input);
-
-      const born = Date.now();
-      window.setTimeout(() => {
-        input.focus();
-        /* select the name, not the extension */
-        const dot = item instanceof TFile && item.extension
-          ? item.name.length - item.extension.length - 1
-          : item.name.length;
-        input.setSelectionRange(0, dot);
-      }, 80);
-
-      let done = false;
-      const finish = async (commit) => {
-        if (done) return;
-        done = true;
-        const value = input.value.trim();
-        input.remove();
-        name.style.display = '';
-        if (!commit || !value || value === item.name) return;
-
-        try {
-          if (value.includes('/')) throw new Error('a name can\'t contain /  (use mv to move things)');
-          const dir = item.parent && !item.parent.isRoot() ? item.parent.path + '/' : '';
-          const dest = dir + value;
-          if (this.app.vault.getAbstractFileByPath(dest)) throw new Error(value + ': already exists');
-          const from = item.path;
-          await this.app.fileManager.renameFile(item, dest);
-          this.remap(from, dest);
-          this.say('rename: ' + from + ' → ' + dest);
-        } catch (err) {
-          this.say('rename: ' + (err && err.message ? err.message : err), true);
-        }
-      };
-
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); finish(true); }
-        else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
-      });
-      /* the menu closing can steal focus a moment after we take it; ignore that */
-      input.addEventListener('blur', () => {
-        if (Date.now() - born < 300) return;
-        finish(false);
-      });
-      return;
-    }
-  }
-
-  confirmDelete(item) {
-    if (item instanceof TFolder && item.children.length) {
-      new ConfirmModal(
-        this.app,
-        'move "' + item.path + '" and everything inside it to the trash?',
-        () => this.guard('rm', this.doDelete(item))
-      ).open();
-    } else {
-      this.guard('rm', this.doDelete(item));
-    }
-  }
-
-  async doDelete(item) {
-    const path = item.path;
-    await this.app.fileManager.trashFile(item);   /* obsidian's own trash setting applies */
-    if (this.cwd === path || this.cwd.startsWith(path + '/')) this.cwd = parentOf(path);
-    this.say('rm: ' + path + ' → trash');
-    this.renderAll();
-  }
-
-  async copyFile(file) {
-    const dir = file.parent && !file.parent.isRoot() ? file.parent.path + '/' : '';
-    const ext = file.extension ? '.' + file.extension : '';
-    let n = 1;
-    let path;
-    do {
-      path = dir + file.basename + ' ' + n + ext;
-      n++;
-    } while (this.app.vault.getAbstractFileByPath(path));
-    await this.app.vault.copy(file, path);
-    this.say('copy: ' + path);
-  }
-
-  /* after a rename or move: keep fold state and cwd pointing at the new path */
-  remap(from, to) {
-    const fix = (p) => (p === from ? to : p.startsWith(from + '/') ? to + p.slice(from.length) : p);
-    this.open = new Set([...this.open].map(fix));
-    this.cwd = fix(this.cwd);
-    this.persist();
-    this.renderAll();
-  }
-
-  async create(folder, kind) {
-    const isFolder = kind === 'folder';
-    const base = isFolder ? 'untitled folder' : 'untitled';
-    const dir = folder.isRoot() ? '' : folder.path + '/';
-
-    let n = 0;
-    let path;
-    do {
-      path = dir + base + (n ? ' ' + n : '') + (isFolder ? '' : '.md');
-      n++;
-    } while (this.app.vault.getAbstractFileByPath(path));
-
-    if (!folder.isRoot()) {
-      this.open.add(folder.path);
-      this.persist();
-    }
-    if (isFolder) {
-      await this.app.vault.createFolder(path);
-    } else {
-      const file = await this.app.vault.create(path, '');
-      await this.app.workspace.getLeaf(false).openFile(file);
-    }
-  }
-
   /* ── the shell ───────────────────────────────────────────────────── */
-
-  cwdLabel() {
-    return '~' + (this.cwd ? '/' + this.cwd : '');
-  }
 
   say(msg, bad) {
     for (const root of this.roots) {
       const out = root.__ez.out;
       out.textContent = msg || '';
       out.classList.toggle('is-bad', !!bad);
+      out.scrollTop = 0;
     }
   }
 
@@ -715,12 +562,11 @@ module.exports = class MishEza extends Plugin {
       switch (cmd) {
         case 'touch': await this.cmdTouch(rest); break;
         case 'mkdir': await this.cmdMkdir(rest); break;
+        case 'rename': await this.cmdRename(args); break;
+        case 'mv': await this.cmdMv(args); break;
+        case 'cp': await this.cmdCp(args); break;
         case 'rm':
-        case 'delete': await this.cmdRm(rest); break;
-        case 'mv':
-        case 'rename': await this.cmdMv(args); break;
-        case 'cd': this.cmdCd(rest); break;
-        case 'pwd': this.say(this.cwdLabel()); break;
+        case 'delete': await this.cmdRm(args); break;
         case 'sort': this.cmdSort(rest); break;
         case 'reveal': this.cmdReveal(); break;
         case 'collapse': this.open.clear(); this.renderAll(); this.persist(); break;
@@ -728,16 +574,78 @@ module.exports = class MishEza extends Plugin {
         case 'clear': break;
         case 'help': this.say(HELP); break;
         default:
-          this.say('zsh: command not found: ' + cmd, true);
+          this.say('zsh: command not found: ' + cmd + '   (try: help)', true);
       }
     } catch (e) {
       this.say(cmd + ': ' + (e && e.message ? e.message : e), true);
     }
   }
 
-  /* resolves ../, ~/ and plain names against the current directory */
-  joinPath(base, p) {
-    const parts = /^[~/]/.test(p) ? [] : base.split('/').filter(Boolean);
+  /* tab: completes a command name, or the file name being typed */
+  complete(input) {
+    const value = input.value;
+    const sp = value.search(/\s/);
+
+    if (sp < 0) {
+      if (!value) return;
+      const hits = COMMANDS.filter((c) => c.startsWith(value));
+      if (hits.length === 1) input.value = hits[0] + ' ';
+      else if (hits.length > 1) {
+        input.value = commonPrefix(hits);
+        this.say(hits.join('   '));
+      }
+      return;
+    }
+
+    const cmd = value.slice(0, sp);
+    if (!PATH_CMDS.has(cmd)) return;
+    const rest = value.slice(sp + 1);
+
+    /* where does the name being typed start? after the last space that isn't
+       inside quotes (single-name commands may contain spaces, so only quotes count there) */
+    let start = 0;
+    let quote = '';
+    for (let i = 0; i < rest.length; i++) {
+      const ch = rest[i];
+      if (quote) {
+        if (ch === quote) quote = '';
+      } else if (ch === '"' || ch === "'") {
+        quote = ch;
+        start = i;
+      } else if (ch === ' ' && MULTI_CMDS.has(cmd)) {
+        start = i + 1;
+      }
+    }
+
+    const before = rest.slice(0, start);
+    let token = rest.slice(start);
+    const opened = /^["']/.test(token) ? token[0] : '';
+    if (opened) token = token.slice(1);
+
+    const slash = token.lastIndexOf('/');
+    const dirPart = slash < 0 ? '' : token.slice(0, slash + 1);
+    const base = token.slice(slash + 1).toLowerCase();
+
+    const dir = dirPart ? this.app.vault.getAbstractFileByPath(this.joinPath(dirPart)) : this.app.vault.getRoot();
+    if (!(dir instanceof TFolder)) return;
+
+    const hits = sorted(dir, 'name').filter((n) => n.name.toLowerCase().startsWith(base));
+    if (!hits.length) return;
+
+    const names = hits.map((n) => n.name + (n instanceof TFolder ? '/' : ''));
+    const unique = hits.length === 1;
+    const completed = dirPart + (unique ? names[0] : commonPrefix(names));
+    if (!unique) this.say(names.join('   '));
+
+    /* two-name commands need quotes round names with spaces */
+    const quoteChar = opened || (MULTI_CMDS.has(cmd) && /\s/.test(completed) ? '"' : '');
+    const closing = unique && quoteChar && !(hits[0] instanceof TFolder) ? quoteChar : '';
+    input.value = cmd + ' ' + before + quoteChar + completed + closing;
+  }
+
+  /* resolves ../, ~/ and plain names, always from the vault root */
+  joinPath(p) {
+    const parts = [];
     for (const seg of p.replace(/^[~/]+/, '').split('/')) {
       if (!seg || seg === '.') continue;
       if (seg === '..') parts.pop();
@@ -746,17 +654,14 @@ module.exports = class MishEza extends Plugin {
     return parts.join('/');
   }
 
-  /* finds an existing thing: relative to cwd first, then the vault root; foo finds foo.md */
+  /* finds an existing thing by exact path; foo finds foo.md */
   lookup(p) {
     const vault = this.app.vault;
-    if (!p || p === '~') return vault.getRoot();
-
-    for (const full of [this.joinPath(this.cwd, p), this.joinPath('', p)]) {
-      if (!full) return vault.getRoot();
-      for (const cand of [full, full + '.md']) {
-        const found = vault.getAbstractFileByPath(cand);
-        if (found) return found;
-      }
+    const full = this.joinPath(p || '');
+    if (!full) return vault.getRoot();
+    for (const cand of [full, full + '.md']) {
+      const found = vault.getAbstractFileByPath(cand);
+      if (found) return found;
     }
     return null;
   }
@@ -778,8 +683,16 @@ module.exports = class MishEza extends Plugin {
     this.persist();
   }
 
+  /* after a rename or move: keep fold state pointing at the new path */
+  remap(from, to) {
+    const fix = (p) => (p === from ? to : p.startsWith(from + '/') ? to + p.slice(from.length) : p);
+    this.open = new Set([...this.open].map(fix));
+    this.persist();
+    this.renderAll();
+  }
+
   async cmdTouch(rest) {
-    let path = this.joinPath(this.cwd, rest);
+    let path = this.joinPath(rest);
     if (!path) throw new Error('usage: touch <name>');
     if (!hasExt(path)) path += '.md';
     if (this.app.vault.getAbstractFileByPath(path)) throw new Error(path + ': already exists');
@@ -792,7 +705,7 @@ module.exports = class MishEza extends Plugin {
   }
 
   async cmdMkdir(rest) {
-    const path = this.joinPath(this.cwd, rest);
+    const path = this.joinPath(rest);
     if (!path) throw new Error('usage: mkdir <name>');
     if (this.app.vault.getAbstractFileByPath(path)) throw new Error(path + ': already exists');
 
@@ -801,26 +714,52 @@ module.exports = class MishEza extends Plugin {
     this.say('mkdir: ' + path);
   }
 
-  async cmdRm(rest) {
-    if (!rest) throw new Error('usage: rm <name>');
-    const item = this.lookup(rest);
-    if (!item) throw new Error(rest + ': no such file or directory');
-    if (item === this.app.vault.getRoot()) throw new Error('refusing to remove the vault root');
+  /* rename "<new name>"  → the open note;  rename "<from>" "<new name>"  → any file */
+  async cmdRename(args) {
+    if (args.length > 2) {
+      throw new Error('too many names. quote names with spaces:  rename "old name" "new name"');
+    }
 
-    const path = item.path;
-    await this.app.fileManager.trashFile(item);   /* obsidian's own trash setting applies */
-    if (this.cwd === path || this.cwd.startsWith(path + '/')) this.cwd = parentOf(path);
-    this.say('rm: ' + path + ' → trash');
+    let src;
+    let name;
+    if (args.length === 1) {
+      src = this.app.workspace.getActiveFile();
+      name = args[0];
+      if (!src) throw new Error('no note is open.  use:  rename "<from>" "<new name>"');
+    } else if (args.length === 2) {
+      src = this.lookup(args[0]);
+      name = args[1];
+      if (!src) throw new Error(args[0] + ': no such file or directory');
+    } else {
+      throw new Error('usage: rename "<new name>"   or   rename "<from>" "<new name>"');
+    }
+
+    if (src === this.app.vault.getRoot()) throw new Error('refusing to rename the vault root');
+    if (name.includes('/')) throw new Error('a new name can\'t contain /   (use mv to move things)');
+    if (src instanceof TFile && src.extension
+        && !name.toLowerCase().endsWith('.' + src.extension.toLowerCase())) {
+      name += '.' + src.extension;
+    }
+
+    const from = src.path;
+    const dir = src.parent && !src.parent.isRoot() ? src.parent.path + '/' : '';
+    const dest = dir + name;
+    if (dest === from) throw new Error('that is already its name');
+    if (this.app.vault.getAbstractFileByPath(dest)) throw new Error(dest + ': already exists');
+
+    await this.app.fileManager.renameFile(src, dest);   /* updates links to it, too */
+    this.remap(from, dest);
+    this.say('rename: ' + from + ' → ' + dest);
   }
 
   async cmdMv(args) {
-    if (args.length !== 2) throw new Error('usage: mv <from> <to>  (quote names with spaces)');
+    if (args.length !== 2) throw new Error('usage: mv "<from>" "<to>"   (to rename, use: rename)');
     const src = this.lookup(args[0]);
     if (!src) throw new Error(args[0] + ': no such file or directory');
     if (src === this.app.vault.getRoot()) throw new Error('refusing to move the vault root');
 
     const from = src.path;
-    let dest = this.joinPath(this.cwd, args[1]);
+    let dest = this.joinPath(args[1]);
     const existing = dest ? this.app.vault.getAbstractFileByPath(dest) : this.app.vault.getRoot();
 
     if (existing instanceof TFolder) dest = (existing.isRoot() ? '' : existing.path + '/') + src.name;
@@ -834,17 +773,60 @@ module.exports = class MishEza extends Plugin {
     this.say('mv: ' + from + ' → ' + dest);
   }
 
-  cmdCd(rest) {
-    const target = this.lookup(rest);
-    if (!target) throw new Error(rest + ': no such directory');
-    if (!(target instanceof TFolder)) throw new Error(rest + ': not a directory');
+  /* cp  → copy the open note;  cp "<from>"  → copy beside it;  cp "<from>" "<to>"  → copy there */
+  async cmdCp(args) {
+    if (args.length > 2) throw new Error('too many names. quote names with spaces:  cp "from" "to"');
 
-    this.cwd = target.isRoot() ? '' : target.path;
-    if (this.cwd) {
-      this.open.add(this.cwd);
-      this.openParents(this.cwd);
+    const src = args.length ? this.lookup(args[0]) : this.app.workspace.getActiveFile();
+    if (!src) throw new Error(args.length ? args[0] + ': no such file' : 'no note is open');
+    if (!(src instanceof TFile)) throw new Error('only notes and files can be copied');
+
+    const ext = src.extension ? '.' + src.extension : '';
+    let dest;
+
+    if (args.length < 2) {
+      /* "name 1.md", "name 2.md", ... next to the original */
+      const dir = src.parent && !src.parent.isRoot() ? src.parent.path + '/' : '';
+      let n = 1;
+      do {
+        dest = dir + src.basename + ' ' + n + ext;
+        n++;
+      } while (this.app.vault.getAbstractFileByPath(dest));
+    } else {
+      dest = this.joinPath(args[1]);
+      const existing = dest ? this.app.vault.getAbstractFileByPath(dest) : this.app.vault.getRoot();
+      if (existing instanceof TFolder) dest = (existing.isRoot() ? '' : existing.path + '/') + src.name;
+      else if (existing) throw new Error(dest + ': already exists');
+      else if (ext && !dest.toLowerCase().endsWith(ext.toLowerCase())) dest += ext;
     }
+
+    await this.ensureFolder(parentOf(dest));
+    await this.app.vault.copy(src, dest);
+    this.openParents(dest);
+    this.say('cp: ' + src.path + ' → ' + dest);
+  }
+
+  /* rm <name>   (rm -r <folder> when it still has things in it) */
+  async cmdRm(args) {
+    const recursive = args.some((a) => /^-/.test(a) && /r/i.test(a));
+    const rest = args.filter((a) => !/^-/.test(a)).join(' ');
+    if (!rest) throw new Error('usage: rm <name>     (rm -r <folder> for a folder with things in it)');
+
+    const item = this.lookup(rest);
+    if (!item) throw new Error(rest + ': no such file or directory');
+    if (item === this.app.vault.getRoot()) throw new Error('refusing to remove the vault root');
+    if (item instanceof TFolder && item.children.length && !recursive) {
+      throw new Error(item.path + ' is not empty. to delete it and everything in it:  rm -r "' + item.path + '"');
+    }
+
+    const path = item.path;
+    await this.app.vault.trash(item, true);   /* true = the system trash, not obsidian's */
+    for (const p of [...this.open]) {
+      if (p === path || p.startsWith(path + '/')) this.open.delete(p);
+    }
+    this.persist();
     this.renderAll();
+    this.say('rm: ' + path + ' → system trash');
   }
 
   cmdSort(rest) {
