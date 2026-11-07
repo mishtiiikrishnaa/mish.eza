@@ -1,14 +1,6 @@
 {
   "open": [
-    "test",
-    "semester 2/ms",
-    "semester 2/trees",
-    "semester 2/data structures/data structures revision 13th mar",
-    "semester 2/linked lists/doubly linked lists",
-    "semester 2/linked lists/singly linked lists",
-    "semester 2/trees/images",
-    "hello",
-    "test1"
+    "test"
   ],
-  "sort": "name"
+  "sort": "mtime"
 }
