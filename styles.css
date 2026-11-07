@@ -62,17 +62,17 @@
 
 /* ═══ the card: same box as fastfetch's .vf ═══
    no colour of its own (the theme's sidebar shows through), a thin themed
-   border, 10px corners. it hugs its content and centres itself in the pane;
-   it only shrinks when the pane is genuinely narrower, and never grows taller
-   than the pane (the tree scrolls inside it, the shell line stays put).
-   to pin it to the top instead of centring, change margin to: 0 auto auto */
+   border, 10px corners. it fills the pane's width, so it's the same width as
+   the mish.fastfetch card (both sit inside 10px of padding), and it never grows
+   taller than the pane (the tree scrolls inside it, the shell line stays put).
+   it centres itself vertically when short; to pin it to the top instead,
+   change margin to: 0 auto auto */
 .ez-card {
   position: relative;            /* the rainbow scrollbars position against this */
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  width: max-content;
-  min-width: min(100%, 240px);   /* enough room for the shell line */
+  width: 100%;
   max-width: 100%;
   max-height: 100%;
   margin: auto;
