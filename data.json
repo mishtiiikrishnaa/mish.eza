@@ -1,12 +1,24 @@
 {
+  "settings": {
+    "username": "",
+    "font": "bundled",
+    "customFont": "",
+    "groupDirsFirst": true,
+    "pills": {
+      "user": true,
+      "vault": true,
+      "git": true,
+      "time": true
+    },
+    "show": {
+      "command": true,
+      "keys": true
+    }
+  },
   "open": [
-    "lol1",
-    "archive",
-    "hello",
-    "ideaa",
-    "ideas1",
     "ideas100",
-    "ideas2"
+    "ideaa",
+    "ideas1"
   ],
   "sort": "ctime"
 }

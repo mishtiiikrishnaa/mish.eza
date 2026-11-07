@@ -11,6 +11,8 @@
      it is not a real shell: the words are mapped onto obsidian's own vault
      api. nothing is ever sent to the operating system, and nothing is run.
    - the prompt grows a git branch when the vault is a git repository
+   - everything (prompt, tree and the shell line) sits in one bordered card,
+     the same box mish.fastfetch draws: it hugs its content and centres itself
    the old explorer is only hidden; "toggle native file explorer" brings it back.
    ═══════════════════════════════════════════════════════════════════════ */
 
@@ -791,8 +793,13 @@ module.exports = class MishEza extends Plugin {
 
   build() {
     const root = el('div', 'ez-root');
+
+    /* the card: one bordered box round everything, like fastfetch's .vf */
+    const card = el('div', 'ez-card');
+    root.appendChild(card);
+
     const scroll = el('div', 'ez-scroll');   /* header + tree scroll; the shell stays put */
-    root.appendChild(scroll);
+    card.appendChild(scroll);
 
     const bar = el('div', 'ez-bar');
     scroll.appendChild(bar);
@@ -817,13 +824,13 @@ module.exports = class MishEza extends Plugin {
     scroll.appendChild(tree);
 
     const help = el('div', 'ez-helppage');   /* shown instead of the tree while help is open */
-    root.appendChild(help);
+    card.appendChild(help);
 
     const foot = this.buildFoot(root);
-    root.appendChild(foot.node);
+    card.appendChild(foot.node);             /* the shell line lives inside the card too */
 
-    const fit = fitBar(bar, [scroll]);   /* keeps the full vault name on screen */
-    root.__ez = { bar, tree, arg, help, fit, cmd, dot, keys: foot.keys, clock: null, input: foot.input, out: foot.out };
+    const fit = fitBar(bar, [card, scroll]);   /* keeps the full vault name on screen */
+    root.__ez = { card, bar, tree, arg, help, fit, cmd, dot, keys: foot.keys, clock: null, input: foot.input, out: foot.out };
     rainbowBar(scroll);
     rainbowBar(help);
     rainbowBar(foot.out);

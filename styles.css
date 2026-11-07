@@ -31,6 +31,7 @@
    mish-eza · styles
    starship prompt, eza tree, a little shell, rainbow gradient on our own icons.
    colours use the same --vf-* variables as mish.fastfetch, with fallbacks.
+   the whole panel sits in one card (.ez-card), the same box as fastfetch's .vf.
    tweak these if you like:
      --ez-line   opacity-free base colour of the tree lines
      --ez-row    row height
@@ -53,14 +54,68 @@
   letter-spacing: 0.005em;
   text-align: left;
   user-select: none;
+  display: flex;                 /* margin:auto on the card centres it both ways */
+  padding: 10px;
+  background: transparent;
+  min-width: 0;
+}
+
+/* ═══ the card: same box as fastfetch's .vf ═══
+   no colour of its own (the theme's sidebar shows through), a thin themed
+   border, 10px corners. it hugs its content and centres itself in the pane;
+   it only shrinks when the pane is genuinely narrower, and never grows taller
+   than the pane (the tree scrolls inside it, the shell line stays put).
+   to pin it to the top instead of centring, change margin to: 0 auto auto */
+.ez-card {
+  position: relative;            /* the rainbow scrollbars position against this */
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
+  width: max-content;
+  min-width: min(100%, 240px);   /* enough room for the shell line */
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  background: transparent;
+  border: 0;                     /* the rainbow ring below is the border */
+  border-radius: 10px;
+  overflow: hidden;
+  text-align: left;
 }
+
+/* thin rainbow border: a 1px gradient ring cut out with a mask, so the card
+   itself stays see-through. same colours as the rainbow scrollbar. */
+.ez-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    var(--vf-pink-hi, #ffa6c9),
+    var(--vf-peach, #ffd6a6),
+    var(--vf-yellow, #fff1a8),
+    var(--vf-green, #c9ffa6),
+    var(--vf-blue, #a6c9ff),
+    var(--vf-lilac, #c9b0ff)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
 
 /* prompt + tree live in here and scroll */
 .ez-scroll {
-  flex: 0 0 auto;
-  padding: 10px 10px 2px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px 12px 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* ═══ depth colours: same order as the prompt pills ═══
@@ -285,11 +340,11 @@
 .ez-foot {
   flex: 0 0 auto;
   margin: 0;
-  padding: 6px 10px 6px;
-  background: var(--background-secondary, #0f0f12);
-  border-top: 1px solid var(--ez-line);
+  padding: 6px 12px 8px;
+  background: transparent;       /* part of the card, like fastfetch's last prompt */
+  border-top: 1px solid var(--background-modifier-border, var(--vf-line, #2a2a2f));
   font-size: 11.5px;
-  container-type: inline-size;
+  container-type: inline-size;   /* also keeps the keys row from widening the card */
 }
 
 .ez-out {
@@ -391,6 +446,11 @@
 
 .ez-helppage { display: none; }
 .ez-root.is-help .ez-scroll { display: none; }
+/* the guide is wide and tall, so the card takes the whole pane while it's open */
+.workspace-leaf-content[data-type="file-explorer"].ez-on .ez-root.is-help .ez-card {
+  width: 100%;
+  height: 100%;
+}
 .ez-root.is-help .ez-helppage {
   display: block;
   flex: 1 1 auto;
