@@ -45,7 +45,8 @@ obsidian plugins are not npm packages. the "package" is **three files attached t
 - [ ] **trying to escape the vault**: `touch ../escape`, `mkdir ../../escape`, `mv "a" "../b"`, `rm ../anything`. nothing outside the vault may be created, moved or deleted.
 - [ ] **collisions**: `touch` / `mkdir` / `cp` / `mv` onto a name that already exists. nothing is overwritten and the message is clear.
 - [ ] names with spaces need quotes: test with and without quotes; test an unbalanced quote.
-- [ ] `rm` really goes to the **system trash** (check the macOS trash) and `rm -r` on a folder with contents works. remember: it does not ask first.
+- [ ] `rm` really goes to the **system trash** (check the macOS trash) and `rm -r` on a folder with contents works.
+- [ ] **the y/n question**: `rm <file>` shows the yellow `[y/N]` line and the placeholder changes to `y / n`. `y` and `yes` delete, `n` cancels, a bare enter cancels, esc cancels, clicking the output line cancels, typing another command cancels. a folder says how many items are inside. `rm -f` skips the question. turn **ask before deleting** off in settings: no question. nothing is trashed until you answer `y`.
 - [ ] `mv` and `rename` update `[[links]]` in other notes.
 - [ ] rename the note that is currently open: the panel highlight follows it.
 - [ ] `cp` with no names and no open note: a polite message, no crash.
@@ -62,7 +63,7 @@ obsidian plugins are not npm packages. the "package" is **three files attached t
 - [ ] fresh clone into a temp folder (`git clone ... /tmp/x`), run `bash scripts/check.sh` there.
 - [ ] the readme renders on github: every link works, no broken images.
 - [ ] `LICENSE`, `THIRD-PARTY-NOTICES.md` and `licenses/` are all present, and github's sidebar says **MIT** (not "view license"). the `LICENSE` file must stay the plain, unedited mit text or github cannot identify it; anything extra goes in `THIRD-PARTY-NOTICES.md`.
-- [ ] screenshots live in `docs/screenshots/`, each under about 300 KB, and show no real name, vault path or private note titles.
+- [ ] screenshots live in `docs/screenshots/`, each under about 300 KB, and show no real name, vault path or private note titles. (they are portrait, about 600 px wide, so the readme shows them at 260 to 300 px.)
 - [ ] the minimum version: either install obsidian 1.5.x and test on it, or raise `minAppVersion` to the oldest version you actually tested. a promise you haven't tested is a fib.
 
 ## cutting the release
@@ -74,7 +75,7 @@ git tag 1.0.0          # exactly the manifest version, no "v"
 git push origin 1.0.0
 ```
 
-github actions makes a **draft** release with the three files. open it on github, read the notes, and press **publish release**.
+the workflow in `.github/workflows/release.yml` runs `scripts/check.sh` and makes a **draft** release with the three files. open it on github, read the notes, and press **publish release**.
 
 ## after publishing
 
@@ -85,7 +86,7 @@ github actions makes a **draft** release with the three files. open it on github
 ## community plugins (optional, slow)
 
 1. fork https://github.com/obsidianmd/obsidian-releases.
-2. add this to the end of `community-plugins.json`, and open a pull request:
+2. add this to the end of `community-plugins.json` (put a comma after the entry above it), and open a pull request titled `Add plugin: mish.eza`:
 
 ```json
 {
