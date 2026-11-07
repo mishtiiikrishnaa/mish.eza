@@ -1,9 +1,11 @@
-# mish-eza
+# mish.eza
 
 an [obsidian](https://obsidian.md) plugin that turns the file explorer into a terminal: a starship-style prompt, a real `eza --tree` listing coloured by depth, and a tiny command line (`touch`, `mkdir`, `rename`, `mv`, `cp`, `rm` and friends) in place of the explorer's buttons.
 
-<!-- add a screenshot at docs/images/panel.png, then uncomment the next line:
-![the mish-eza panel](docs/images/panel.png)
+<!--
+screenshot: drag a png into any github issue or pull request comment box (do not submit it), copy the
+https://github.com/user-attachments/... link it makes, and paste it on the next line as ![the panel](that-link)
+no image file needs to live in this repository.
 -->
 
 desktop only.
@@ -30,11 +32,11 @@ names with spaces need "quotes". the original explorer is only hidden: run **tog
 
 ## install
 
-**from obsidian** (once it is listed): settings → community plugins → browse → search for `mish-eza`.
+**from obsidian** (once it is listed): settings → community plugins → browse → search for `mish.eza`.
 
 **with [brat](https://github.com/TfTHacker/obsidian42-brat)**: add `mishtiiikrishnaa/mish.eza` as a beta plugin.
 
-**by hand**: download `main.js`, `manifest.json` and `styles.css` from the latest release into `<your vault>/.obsidian/plugins/mish-eza/`, reload obsidian, and switch the plugin on.
+**by hand**: download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/mishtiiikrishnaa/mish.eza/releases/latest) into `<your vault>/.obsidian/plugins/mish-eza/`, reload obsidian, and switch the plugin on.
 
 ## settings
 
@@ -58,7 +60,7 @@ what it does touch:
 | the note you have open | obsidian's workspace api | to highlight it, and for `rename` / `cp` with no names |
 | `.git/HEAD` in the vault folder | obsidian's vault api, one small read | the git pill. only when that pill is on; if there is no such file, nothing shows |
 | your computer's user name | node's `os` module | the first pill. this is why the plugin is desktop only |
-| your installed fonts | `window.queryLocalFonts()`, only when you press **scan** | the font menu. the browser asks permission first |
+| your installed fonts | `window.queryLocalFonts()`, only when you press **scan** | the font menu. the browser asks permission first. the names stay in memory and are not saved or sent anywhere |
 | `data.json` in the plugin folder | obsidian's `saveData` | your settings, which folders are unfolded, and the sort order |
 
 what it changes, and only when you run the command: `touch`, `mkdir`, `rename`, `mv` and `cp` create, rename, move or copy things in your vault (obsidian updates links when something is renamed or moved). `rm` and `delete` send things to the **system trash** and do **not** ask first. you can fish them back out, but be careful.
@@ -71,17 +73,17 @@ grep -nE "child_process|fetch\(|XMLHttpRequest|WebSocket|eval\(|new Function|inn
 
 ## how it fits into obsidian
 
-obsidian has no api for replacing the file explorer, so the plugin does it the only way available: it adds its own panel to the explorer's view and hides the original with css. that depends on obsidian's internal page structure, which can change in an update. if the panel ever misbehaves after an update, run **toggle native file explorer**, and please open an issue.
+obsidian has no api for replacing the file explorer, so the plugin does it the only way available: it adds its own panel to the explorer's view and hides the original with css. that depends on obsidian's internal page structure, which can change in an update. if the panel ever misbehaves after an update, run **toggle native file explorer**, and please [open an issue](https://github.com/mishtiiikrishnaa/mish.eza/issues).
 
 ## fonts
 
 the default font and the logos are embedded in `styles.css`, so they work on any machine.
 
-- **CMU Typewriter Text**, SIL Open Font License 1.1, as a subset renamed "Mish Typewriter".
-- five glyphs from **Symbols Nerd Font Mono** (MIT; the logos come from Font Awesome, CC BY 4.0, and the clock from Octicons, MIT).
+- **cmu typewriter text**, SIL Open Font License 1.1, as a subset embedded under the name "mish mono".
+- six glyphs from **symbols nerd font mono**, embedded as "mish icons" (the three operating system logos come from Font Awesome, CC BY 4.0, and the clock from Octicons, MIT).
 
-the subset covers latin letters, digits and common punctuation. a file name in another script is drawn with your system's monospace font instead. licence texts are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+the subset covers latin letters, digits and common punctuation. a file name in another script is drawn with your system's monospace font instead. the tree lines themselves are drawn with css, so they never depend on the font. full licence details are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## licence
 
-[MIT](LICENSE), © mishti.
+the plugin's own code is [MIT](LICENSE), (c) 2026 mishti. the embedded fonts keep their own licences: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the [`licenses/`](licenses) folder.

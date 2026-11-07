@@ -1,6 +1,6 @@
 {
   "id": "mish-eza",
-  "name": "mish-eza",
+  "name": "mish.eza",
   "version": "1.0.0",
   "minAppVersion": "1.5.0",
   "description": "Replace the file explorer with an eza-style tree, a starship-style prompt and a small command line for making, renaming, copying and deleting notes.",
