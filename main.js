@@ -1,18 +1,25 @@
 'use strict';
 
 /* ═══════════════════════════════════════════════════════════════════════
-   mish.eza
+   mish-eza
    a starship prompt + `eza --tree --all --level=99 .` that actually IS the
    file explorer: real ├── └── │ lines, click to open/fold.
    - colours follow the prompt pills, one colour per depth
    - a little shell at the bottom (type commands, or click them) replaces
      the explorer's button pills. tab completes names.
        touch mkdir rename mv cp rm/delete sort reveal collapse expand help
-   - the prompt grows a git branch and node version when it can find them
+     it is not a real shell: the words are mapped onto obsidian's own vault
+     api. nothing is ever sent to the operating system, and nothing is run.
+   - the prompt grows a git branch when the vault is a git repository
    the old explorer is only hidden; "toggle native file explorer" brings it back.
    ═══════════════════════════════════════════════════════════════════════ */
 
-const { Plugin, TFolder, TFile, Menu, Keymap, Platform } = require('obsidian');
+const { Plugin, PluginSettingTab, Setting, Notice, TFolder, TFile, Menu, Keymap, Platform, setIcon } = require('obsidian');
+
+/* node's `os` module is how the prompt finds your username.
+   it only exists on desktop, which is why the manifest says isDesktopOnly. */
+let nodeOs = null;
+try { nodeOs = require('os'); } catch (e) { nodeOs = null; }
 
 const pad = (n) => String(n).padStart(2, '0');
 
@@ -21,6 +28,91 @@ const el = (tag, cls, text) => {
   if (cls) node.className = cls;
   if (text != null) node.textContent = text;
   return node;
+};
+
+
+const DEFAULT_SETTINGS = {
+  username: '',          /* empty = auto-detect */
+  font: 'bundled',       /* bundled | obsidian | system | family:<name> | custom */
+  customFont: '',
+  groupDirsFirst: true,  /* like `eza --group-directories-first` */
+  pills: { user: true, vault: true, git: true, time: true },
+  show: { command: true, keys: true },
+};
+
+/* who you are, as the operating system reports it */
+const detectIdentity = () => {
+  let user = 'user';
+  try { user = nodeOs.userInfo().username || user; } catch (e) { /* keep the fallback */ }
+  return { user: user.toLowerCase() };
+};
+
+/* nerd font logos: apple / windows / linux (bundled in styles.css) */
+const osGlyph = () => {
+  if (Platform.isMacOS) return '\uF179';
+  if (Platform.isWin) return '\uF17A';
+  return '\uF17C';
+};
+
+/* ── fonts ───────────────────────────────────────────────────────────────
+   the panel ships its own typewriter face (embedded in styles.css), so the
+   default needs nothing installed. the settings can swap it for a font from
+   the user's own machine. */
+
+/* well-known monospace fonts, checked quietly with no permission needed */
+const CANDIDATE_FONTS = [
+  'SF Mono', 'Menlo', 'Monaco', 'Andale Mono', 'Consolas', 'Lucida Console', 'Cascadia Code',
+  'Cascadia Mono', 'Courier New', 'JetBrains Mono', 'Fira Code', 'Fira Mono', 'Source Code Pro',
+  'IBM Plex Mono', 'Roboto Mono', 'Hack', 'Inconsolata', 'Ubuntu Mono', 'DejaVu Sans Mono',
+  'Liberation Mono', 'Noto Sans Mono', 'Iosevka', 'Victor Mono', 'Space Mono', 'CMU Typewriter Text',
+  'MesloLGS NF',
+];
+
+const quoteFont = (name) => '"' + String(name).replace(/["\\]/g, '') + '"';
+
+let measureCtx = null;
+const textWidth = (family, text) => {
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+  measureCtx.font = '64px ' + family;
+  return measureCtx.measureText(text).width;
+};
+
+/* installed = drawing with it differs from every plain fallback */
+const isInstalled = (name) => ['monospace', 'serif', 'sans-serif'].some(
+  (base) => textWidth(quoteFont(name) + ', ' + base, 'mmmmmmmmmmlli') !== textWidth(base, 'mmmmmmmmmmlli')
+);
+
+/* monospace = narrow and wide letters take the same room */
+const isMono = (name) => {
+  const f = quoteFont(name) + ', monospace';
+  return Math.abs(textWidth(f, 'iiiiiiiiii') - textWidth(f, 'mmmmmmmmmm')) < 0.5 &&
+    Math.abs(textWidth(f, 'llllllllll') - textWidth(f, 'WWWWWWWWWW')) < 0.5;
+};
+
+/* asks chromium for every installed family (it may ask permission first) and
+   keeps the monospace ones. returns null when this version can't do it. */
+const scanSystemFonts = async () => {
+  if (typeof window.queryLocalFonts !== 'function') return null;
+  const fonts = await window.queryLocalFonts();
+  const families = Array.from(new Set(fonts.map((f) => f.family)));
+  return families
+    .filter((name) => !/symbols|emoji|icons|dingbats|wingdings|webdings/i.test(name))
+    .filter((name) => isInstalled(name) && isMono(name))
+    .sort((a, b) => a.localeCompare(b));
+};
+
+/* the font-family to put in --vf-mono, or null to leave the css default
+   (the bundled face, or whatever a theme sets) alone */
+const fontStack = (cfg) => {
+  switch (cfg.font) {
+    case 'obsidian': return 'var(--font-monospace), ui-monospace, monospace';
+    case 'system': return 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    case 'custom': return cfg.customFont.trim() || null;
+    default:
+      return cfg.font.indexOf('family:') === 0
+        ? quoteFont(cfg.font.slice(7)) + ', ui-monospace, monospace'
+        : null;
+  }
 };
 
 /* ── keep the whole vault name visible ───────────────────────────────────
@@ -116,9 +208,6 @@ const rainbowBar = (scroller) => {
 
   schedule();
 };
-
-/* like `eza --group-directories-first`. set to false for plain a-z */
-const GROUP_DIRS_FIRST = true;
 
 /* one colour per depth, in the order of the prompt pills (see styles.css) */
 const COLOURS = 6;
@@ -217,7 +306,7 @@ const buildHelp = (close) => {
   const head = el('div', 'ez-h-head');
   head.appendChild(el('span', 'ez-h-side'));
   head.appendChild(el('span', 'ez-h-title', 'help'));
-  const x = el('span', 'ez-h-close ez-h-side', '✕');
+  const x = el('span', 'ez-h-close ez-h-side', '×');
   x.title = 'back to the tree (esc)';
   x.addEventListener('click', close);
   head.appendChild(x);
@@ -289,10 +378,10 @@ const buildHelp = (close) => {
 const byName = (a, b) =>
   a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
 
-const sorted = (folder, key) => [...folder.children].sort((a, b) => {
+const sorted = (folder, key, groupDirs = true) => [...folder.children].sort((a, b) => {
   const af = a instanceof TFolder;
   const bf = b instanceof TFolder;
-  if (GROUP_DIRS_FIRST && af !== bf) return af ? -1 : 1;
+  if (groupDirs && af !== bf) return af ? -1 : 1;
 
   if (!af && !bf) {
     const sa = a.stat || {};
@@ -444,18 +533,163 @@ const unmountRainbow = () => {
   else svg.dataset.users = String(left);
 };
 
+class EzaSettingTab extends PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+    this.scanned = [];
+  }
+
+  display() {
+    const { containerEl, plugin } = this;
+    const s = plugin.settings;
+    containerEl.empty();
+
+    const flag = (group, key, name, desc, after) => new Setting(containerEl)
+      .setName(name)
+      .setDesc(desc || '')
+      .addToggle((toggle) => toggle
+        .setValue(Boolean(s[group][key]))
+        .onChange(async (value) => {
+          s[group][key] = value;
+          await plugin.saveSettings();
+          if (after) await after(value);
+        }));
+
+    /* ── who you are ── */
+    new Setting(containerEl).setName('identity').setHeading();
+
+    new Setting(containerEl)
+      .setName('user name')
+      .setDesc('shown in the first pill. leave empty to use the name your system reports.')
+      .addText((text) => text
+        .setPlaceholder(plugin.detected.user)
+        .setValue(s.username)
+        .onChange(async (value) => {
+          s.username = value.trim();
+          await plugin.saveSettings();
+        }));
+
+    /* ── what the prompt shows ── */
+    new Setting(containerEl).setName('prompt').setHeading();
+    flag('pills', 'user', 'user pill', 'your name, with a logo for your operating system.');
+    flag('pills', 'vault', 'vault pill', 'the name of this vault.');
+    flag('pills', 'git', 'git pill', 'the current branch, when this vault is a git repository. it reads the file .git/HEAD in the vault folder and nothing else.',
+      () => plugin.probe());
+    flag('pills', 'time', 'time pill', 'the time of day.');
+
+    /* ── the tree ── */
+    new Setting(containerEl).setName('tree').setHeading();
+    new Setting(containerEl)
+      .setName('folders first')
+      .setDesc('list folders before files, like eza --group-directories-first.')
+      .addToggle((toggle) => toggle
+        .setValue(s.groupDirsFirst)
+        .onChange(async (value) => {
+          s.groupDirsFirst = value;
+          await plugin.saveSettings();
+          plugin.renderAll();
+        }));
+
+    /* ── the shell ── */
+    new Setting(containerEl).setName('shell').setHeading();
+    flag('show', 'command', 'command line', 'the line that says eza --tree --all, and the dot under it.');
+    flag('show', 'keys', 'clickable commands', 'the row of command names you can click (touch, mkdir, rename and so on). you can still type them.');
+
+    /* ── font ── */
+    new Setting(containerEl).setName('appearance').setHeading();
+
+    const choices = () => {
+      const opts = {
+        bundled: 'cmu typewriter (bundled)',
+        obsidian: "obsidian's monospace font",
+        system: 'system monospace',
+      };
+      const names = new Set(CANDIDATE_FONTS.filter((n) => isInstalled(n)));
+      this.scanned.forEach((n) => names.add(n));
+      if (s.font.indexOf('family:') === 0) names.add(s.font.slice(7));
+      Array.from(names)
+        .sort((a, b) => a.localeCompare(b))
+        .forEach((n) => { opts['family:' + n] = n; });
+      opts.custom = 'custom…';
+      return opts;
+    };
+
+    let custom = null;
+
+    new Setting(containerEl)
+      .setName('font')
+      .setDesc('the default font is bundled with the plugin, so nothing needs installing. or pick a monospace font from this computer.')
+      .addDropdown((dropdown) => {
+        this.fontDropdown = dropdown;
+        dropdown
+          .addOptions(choices())
+          .setValue(s.font)
+          .onChange(async (value) => {
+            s.font = value;
+            if (custom) custom.settingEl.hidden = value !== 'custom';
+            await plugin.saveSettings();
+          });
+      });
+
+    custom = new Setting(containerEl)
+      .setName('custom font')
+      .setDesc('any css font-family list, such as "JetBrains Mono", monospace')
+      .addText((text) => text
+        .setPlaceholder('"JetBrains Mono", monospace')
+        .setValue(s.customFont)
+        .onChange(async (value) => {
+          s.customFont = value;
+          await plugin.saveSettings();
+        }));
+    custom.settingEl.hidden = s.font !== 'custom';
+
+    new Setting(containerEl)
+      .setName('find monospace fonts')
+      .setDesc("adds every monospace font installed on this computer to the menu above. obsidian may ask for permission first. if this version can't do it, the menu still lists the common fonts it finds.")
+      .addButton((button) => button
+        .setButtonText('scan')
+        .onClick(async () => {
+          button.setDisabled(true);
+          try {
+            const list = await scanSystemFonts();
+            if (!list) {
+              new Notice("this version of obsidian can't list system fonts. use a custom font instead.");
+            } else {
+              this.scanned = list;
+              this.fontDropdown.selectEl.empty();
+              this.fontDropdown.addOptions(choices());
+              this.fontDropdown.setValue(s.font);
+              new Notice('found ' + list.length + ' monospace fonts.');
+            }
+          } catch (e) {
+            new Notice('could not read the font list. use a custom font instead.');
+          }
+          button.setDisabled(false);
+        }));
+  }
+}
+
 module.exports = class MishEza extends Plugin {
   async onload() {
     mountRainbow();
     this.roots = new Set();
     this.branch = null;
-    this.node = null;
     this.showNative = false;
     this.history = [];
+    this.detected = detectIdentity();
 
+    /* data.json holds the settings, the folded folders and the sort order */
     const saved = (await this.loadData()) || {};
+    const savedSettings = saved.settings || {};
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings, {
+      pills: Object.assign({}, DEFAULT_SETTINGS.pills, savedSettings.pills),
+      show: Object.assign({}, DEFAULT_SETTINGS.show, savedSettings.show),
+    });
     this.open = new Set(saved.open || []);
     this.sortKey = SORTS.includes(saved.sort) ? saved.sort : 'name';
+
+    this.addSettingTab(new EzaSettingTab(this.app, this));
 
     this.app.workspace.onLayoutReady(() => {
       this.ensure();
@@ -482,7 +716,7 @@ module.exports = class MishEza extends Plugin {
 
     this.addCommand({
       id: 'remount-eza',
-      name: 'Re-draw eza header',
+      name: 'Redraw the prompt',
       callback: () => {
         for (const root of this.roots) root.remove();
         this.roots.clear();
@@ -511,33 +745,22 @@ module.exports = class MishEza extends Plugin {
       .forEach((leaf) => leaf.classList.remove('ez-on'));
   }
 
-  /* ── prompt extras: git branch + node version, only if they exist ── */
+  /* ── prompt extra: the git branch ──────────────────────────────────────
+     only when the git pill is on. it reads one small file inside the vault
+     folder (.git/HEAD) through obsidian's own api, and runs nothing. */
 
   async probe() {
-    try {
-      const head = (await this.app.vault.adapter.read('.git/HEAD')).trim();
-      const m = head.match(/^ref:\s*refs\/heads\/(.+)$/);
-      this.branch = m ? m[1] : head.slice(0, 7);
-    } catch (e) {
-      this.branch = null;
-    }
-
-    try {
-      if (Platform.isDesktopApp) {
-        const { execFile } = require('child_process');
-        const shell = (typeof process !== 'undefined' && process.env && process.env.SHELL) || '/bin/zsh';
-        /* login shell, so homebrew / nvm paths are found */
-        const out = await new Promise((resolve) => {
-          execFile(shell, ['-lc', 'node -v'], { timeout: 4000 }, (err, stdout) => {
-            resolve(err ? null : String(stdout).trim().split('\n').pop());
-          });
-        });
-        this.node = out && /^v\d/.test(out) ? out : null;
+    this.branch = null;
+    if (this.settings.pills.git) {
+      try {
+        const head = (await this.app.vault.adapter.read('.git/HEAD')).trim();
+        const m = head.match(/^ref:\s*refs\/heads\/(.+)$/);
+        if (m) this.branch = m[1];
+        else if (/^[0-9a-f]{40}$/i.test(head)) this.branch = head.slice(0, 7);   /* detached head */
+      } catch (e) {
+        this.branch = null;
       }
-    } catch (e) {
-      this.node = null;
     }
-
     for (const root of this.roots) this.drawBar(root);
   }
 
@@ -587,7 +810,8 @@ module.exports = class MishEza extends Plugin {
     scroll.appendChild(cmd);
 
     /* eza prints the root as a dot, then the tree */
-    scroll.appendChild(el('div', 'ez-dot', '.'));
+    const dot = el('div', 'ez-dot', '.');
+    scroll.appendChild(dot);
 
     const tree = el('div', 'ez-tree');
     scroll.appendChild(tree);
@@ -599,38 +823,85 @@ module.exports = class MishEza extends Plugin {
     root.appendChild(foot.node);
 
     const fit = fitBar(bar, [scroll]);   /* keeps the full vault name on screen */
-    root.__ez = { bar, tree, arg, help, fit, clock: null, input: foot.input, out: foot.out };
+    root.__ez = { bar, tree, arg, help, fit, cmd, dot, keys: foot.keys, clock: null, input: foot.input, out: foot.out };
     rainbowBar(scroll);
     rainbowBar(help);
     rainbowBar(foot.out);
     this.drawBar(root);
+    this.applyLook(root);
     this.bind(root, tree);
     return root;
   }
 
-  /* powerline prompt; git / node segments appear only when found */
+  /* powerline prompt, built from the pill toggles. the git pill appears only
+     when it is switched on and a branch was found. */
   drawBar(root) {
     const refs = root.__ez;
     refs.bar.replaceChildren();
+    refs.clock = null;
 
-    const segs = [
-      ['ez-user', '\uF179 mishti'],
-      ['ez-path', '~/' + this.app.vault.getName()],
-    ];
-    if (this.branch) segs.push(['ez-git', '\uE0A0 ' + this.branch]);
-    if (this.node) segs.push(['ez-node', '\uE718 ' + this.node]);
-    segs.push(['ez-ch', '']);
-    segs.push(['ez-clock', '']);
+    const { pills } = this.settings;
+    const segs = [];
+    if (pills.user) segs.push(['ez-user', osGlyph() + ' ' + this.identity()]);
+    if (pills.vault) segs.push(['ez-path', '~/' + this.app.vault.getName()]);
+    if (pills.git && this.branch) segs.push(['ez-git', this.branch, true]);
+    if (pills.time) {
+      if (segs.length) segs.push(['ez-ch', '']);   /* the arrow that bridges to the clock */
+      segs.push(['ez-clock', '']);
+    }
 
-    segs.forEach(([cls, text], i) => {
-      const seg = el('span', 'ez-seg ' + cls, text);
+    segs.forEach(([cls, text, icon], i) => {
+      const seg = el('span', 'ez-seg ' + cls);
+      if (icon) {
+        /* obsidian's own branch icon, so no icon font is needed */
+        const mark = el('span', 'ez-git-icon');
+        setIcon(mark, 'git-branch');
+        seg.appendChild(mark);
+        seg.appendChild(document.createTextNode(text));
+      } else {
+        seg.textContent = text;
+      }
       seg.style.zIndex = String(segs.length - i);   /* arrow tips overlap the next segment */
       refs.bar.appendChild(seg);
       if (cls === 'ez-clock') refs.clock = seg;
     });
 
+    refs.bar.hidden = segs.length === 0;
     this.tick();
     if (refs.fit) refs.fit();
+  }
+
+  /* font choice and which parts of the panel show */
+  applyLook(root) {
+    const refs = root.__ez;
+    const { show } = this.settings;
+
+    const stack = fontStack(this.settings);
+    if (stack) root.style.setProperty('--vf-mono', stack);
+    else root.style.removeProperty('--vf-mono');
+
+    refs.cmd.hidden = !show.command;
+    refs.dot.hidden = !show.command;
+    refs.keys.hidden = !show.keys;
+    if (refs.fit) refs.fit();
+  }
+
+  /* settings changed: redraw what depends on them, in place */
+  applySettings() {
+    for (const root of this.roots) {
+      this.drawBar(root);
+      this.applyLook(root);
+    }
+  }
+
+  /* what the settings say, falling back to what the system says */
+  identity() {
+    return this.settings.username || this.detected.user;
+  }
+
+  async saveSettings() {
+    await this.saveAll();
+    this.applySettings();
   }
 
   /* the little shell: clickable commands + a real prompt you can type in */
@@ -735,7 +1006,7 @@ module.exports = class MishEza extends Plugin {
       }
     });
 
-    return { node, input, out };
+    return { node, input, out, keys };
   }
 
   /* clicking a command: ones that need a name get typed into the prompt,
@@ -772,7 +1043,7 @@ module.exports = class MishEza extends Plugin {
   /* guides[i] is true when ancestor i still has siblings below it (draws │).
      depth picks the colour: pink, peach, yellow, green, blue, lilac, repeat. */
   walk(folder, guides, out) {
-    const kids = sorted(folder, this.sortKey);
+    const kids = sorted(folder, this.sortKey, this.settings.groupDirsFirst);
     const depth = guides.length;
     const colour = 'ez-c' + (depth % COLOURS);
 
@@ -855,7 +1126,7 @@ module.exports = class MishEza extends Plugin {
     }
   }
 
-  /* the help page replaces the tree until closed (esc, ✕, or any other command) */
+  /* the help page replaces the tree until closed (esc, ×, or any other command) */
   openHelp() {
     for (const root of this.roots) {
       const page = root.__ez.help;
@@ -945,7 +1216,7 @@ module.exports = class MishEza extends Plugin {
     const dir = dirPart ? this.app.vault.getAbstractFileByPath(this.joinPath(dirPart)) : this.app.vault.getRoot();
     if (!(dir instanceof TFolder)) return;
 
-    const hits = sorted(dir, 'name').filter((n) => n.name.toLowerCase().startsWith(base));
+    const hits = sorted(dir, 'name', this.settings.groupDirsFirst).filter((n) => n.name.toLowerCase().startsWith(base));
     if (!hits.length) return;
 
     const names = hits.map((n) => n.name + (n instanceof TFolder ? '/' : ''));
@@ -1179,10 +1450,11 @@ module.exports = class MishEza extends Plugin {
 
   persist() {
     window.clearTimeout(this.saveTimer);
-    this.saveTimer = window.setTimeout(
-      () => this.saveData({ open: [...this.open], sort: this.sortKey }),
-      500
-    );
+    this.saveTimer = window.setTimeout(() => this.saveAll(), 500);
+  }
+
+  async saveAll() {
+    await this.saveData({ settings: this.settings, open: [...this.open], sort: this.sortKey });
   }
 
   tick() {

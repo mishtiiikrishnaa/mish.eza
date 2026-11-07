@@ -1,10 +1,10 @@
 {
-  "id": "mish.eza",
-  "name": "mish.eza",
-  "version": "1.7.0",
+  "id": "mish-eza",
+  "name": "mish-eza",
+  "version": "1.0.0",
   "minAppVersion": "1.5.0",
-  "description": "starship prompt, a real eza-style tree coloured by depth, and a tiny shell (touch, mkdir, rename, cp, rm...) in place of the explorer buttons; rainbow sidebar icons.",
+  "description": "Replace the file explorer with an eza-style tree, a starship-style prompt and a small command line for making, renaming, copying and deleting notes.",
   "author": "mishti",
-  "authorUrl": "",
-  "isDesktopOnly": false
+  "authorUrl": "https://github.com/mishtiiikrishnaa",
+  "isDesktopOnly": true
 }
