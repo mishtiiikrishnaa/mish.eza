@@ -344,7 +344,6 @@
   background: transparent;       /* part of the card, like fastfetch's last prompt */
   border-top: 1px solid var(--background-modifier-border, var(--vf-line, #2a2a2f));
   font-size: 11.5px;
-  container-type: inline-size;   /* also keeps the keys row from widening the card */
 }
 
 .ez-out {
@@ -571,28 +570,27 @@
 }
 .ez-h-back:hover { text-decoration: underline; }
 
-/* the clickable commands: equal-width columns so rows line up, and a short
-   last row is centred instead of hugging the left */
+/* the clickable commands: one block of exactly 4 columns (4 x 9ch), so the rows
+   are always 4 / 4 / 2 and every command keeps its place relative to the others.
+   the short last row (expand, help) is centred under the rest, and the whole
+   block is centred in the card. resizing the pane only moves the block, it never
+   stretches or re-wraps it. */
 .ez-keys {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 3px 0;
-  margin-bottom: 6px;
+  width: 36ch;
+  flex: none;
+  margin: 0 auto 6px;
 }
 .ez-key {
-  flex: 0 0 calc(100% / 6);
-  min-width: 8.2ch;
+  flex: 0 0 9ch;
   text-align: center;
   cursor: pointer;
   color: var(--c);
 }
 .ez-key:hover { text-decoration: underline; }
-
-/* narrow sidebar: 4 per row instead of 6 */
-@container (max-width: 300px) {
-  .ez-key { flex-basis: 25%; }
-}
 
 .ez-line {
   display: flex;
