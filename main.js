@@ -23,6 +23,67 @@ const el = (tag, cls, text) => {
   return node;
 };
 
+/* ── rainbow scrollbar ──────────────────────────────────────────────────
+   the native scrollbar is hidden (see styles.css) and this draws a thin
+   rainbow thumb in its place, so it looks the same whatever theme or snippet
+   is styling scrollbars. wheel / trackpad scrolling is untouched; the thumb
+   can also be dragged. the scroller's parent must be position: relative. */
+const rainbowBar = (scroller) => {
+  const parent = scroller.parentElement;
+  const sb = el('div', 'ez-sb');
+  const thumb = el('div', 'ez-sb-thumb');
+  sb.appendChild(thumb);
+  parent.appendChild(sb);
+
+  const update = () => {
+    const { scrollHeight, clientHeight, scrollTop, offsetTop, offsetHeight } = scroller;
+    if (!offsetHeight || scrollHeight <= clientHeight + 1) {
+      sb.style.display = 'none';
+      return;
+    }
+    sb.style.display = 'block';
+    sb.style.top = offsetTop + 'px';
+    sb.style.height = clientHeight + 'px';
+    const h = Math.max(24, (clientHeight * clientHeight) / scrollHeight);
+    const y = (scrollTop / (scrollHeight - clientHeight)) * (clientHeight - h);
+    thumb.style.height = h + 'px';
+    thumb.style.transform = 'translateY(' + y + 'px)';
+  };
+
+  let queued = false;
+  const schedule = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; update(); });
+  };
+
+  scroller.addEventListener('scroll', schedule, { passive: true });
+  new ResizeObserver(schedule).observe(scroller);
+  new MutationObserver(schedule).observe(scroller, { childList: true, subtree: true, characterData: true });
+
+  /* drag the thumb */
+  sb.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startY = e.clientY;
+    const startTop = scroller.scrollTop;
+    const ratio = (scroller.scrollHeight - scroller.clientHeight) /
+      Math.max(1, scroller.clientHeight - thumb.offsetHeight);
+    sb.setPointerCapture(e.pointerId);
+    const move = (ev) => { scroller.scrollTop = startTop + (ev.clientY - startY) * ratio; };
+    const up = () => {
+      sb.removeEventListener('pointermove', move);
+      sb.removeEventListener('pointerup', up);
+      sb.removeEventListener('pointercancel', up);
+    };
+    sb.addEventListener('pointermove', move);
+    sb.addEventListener('pointerup', up);
+    sb.addEventListener('pointercancel', up);
+  });
+
+  schedule();
+};
+
 /* like `eza --group-directories-first`. set to false for plain a-z */
 const GROUP_DIRS_FIRST = true;
 
@@ -399,6 +460,9 @@ module.exports = class MishEza extends Plugin {
     root.appendChild(foot.node);
 
     root.__ez = { bar, tree, arg, help, clock: null, input: foot.input, out: foot.out };
+    rainbowBar(scroll);
+    rainbowBar(help);
+    rainbowBar(foot.out);
     this.drawBar(root);
     this.bind(root, tree);
     return root;

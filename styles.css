@@ -417,50 +417,42 @@
   opacity: 0.8;
 }
 
-/* ═══ thin rainbow scrollbars (tree + shell output) ═══
-   obsidian styles every scrollbar with a fairly specific selector, so these
-   are prefixed and !important to actually win. no scrollbar-width / -color
-   here on purpose: chromium ignores ::-webkit-scrollbar when those are set. */
+/* ═══ thin rainbow scrollbars (tree, help page, shell output) ═══
+   the native scrollbar is hidden and main.js draws its own 3px rainbow thumb
+   (.ez-sb), because obsidian / themes / snippets restyle native scrollbars in
+   ways that kept swallowing a gradient. scrolling itself is unchanged. */
 
-body .workspace-leaf-content[data-type="file-explorer"] .ez-scroll::-webkit-scrollbar,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-out::-webkit-scrollbar,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-helppage::-webkit-scrollbar {
-  width: 3px !important;
-  height: 3px !important;
-  background: transparent !important;
-}
-body .workspace-leaf-content[data-type="file-explorer"] .ez-scroll::-webkit-scrollbar-track,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-out::-webkit-scrollbar-track,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-helppage::-webkit-scrollbar-track,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-scroll::-webkit-scrollbar-corner,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-out::-webkit-scrollbar-corner,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-helppage::-webkit-scrollbar-corner {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-body .workspace-leaf-content[data-type="file-explorer"] .ez-scroll::-webkit-scrollbar-button,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-out::-webkit-scrollbar-button,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-helppage::-webkit-scrollbar-button {
+.ez-root,
+.ez-foot { position: relative; }
+
+.ez-scroll,
+.ez-out,
+.ez-helppage { scrollbar-width: none !important; }
+
+.ez-scroll::-webkit-scrollbar,
+.ez-out::-webkit-scrollbar,
+.ez-helppage::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
 }
-body .workspace-leaf-content[data-type="file-explorer"] .ez-scroll::-webkit-scrollbar-thumb,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-scroll::-webkit-scrollbar-thumb:hover,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-scroll::-webkit-scrollbar-thumb:active,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-out::-webkit-scrollbar-thumb,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-helppage::-webkit-scrollbar-thumb,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-out::-webkit-scrollbar-thumb:hover,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-helppage::-webkit-scrollbar-thumb:hover,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-out::-webkit-scrollbar-thumb:active,
-body .workspace-leaf-content[data-type="file-explorer"] .ez-helppage::-webkit-scrollbar-thumb:active {
-  min-height: 28px;
-  border: 0 !important;
-  border-radius: 3px !important;
-  background-color: transparent !important;
-  background-clip: border-box !important;
-  background-image: linear-gradient(
+
+/* an 8px strip you can grab; the visible thumb inside is 3px */
+.ez-sb {
+  position: absolute;
+  right: 0;
+  width: 8px;
+  z-index: 5;
+  display: none;
+  pointer-events: auto;
+}
+.ez-sb-thumb {
+  position: absolute;
+  top: 0;
+  right: 2px;
+  width: 3px;
+  border-radius: 3px;
+  background: linear-gradient(
     180deg,
     var(--vf-pink-hi, #ffa6c9),
     var(--vf-peach, #ffd6a6),
@@ -468,8 +460,10 @@ body .workspace-leaf-content[data-type="file-explorer"] .ez-helppage::-webkit-sc
     var(--vf-green, #c9ffa6),
     var(--vf-blue, #a6c9ff),
     var(--vf-lilac, #c9b0ff)
-  ) !important;
+  );
 }
+/* when the explorer isn't in eza mode, none of this exists */
+.workspace-leaf-content[data-type="file-explorer"]:not(.ez-on) .ez-sb { display: none !important; }
 
 /* ═══ rainbow gradient on our own icons ═══
    the gradient itself (#mish-rainbow) is injected by the plugin. the second
