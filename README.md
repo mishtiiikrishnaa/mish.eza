@@ -114,13 +114,14 @@ type `help` and the tree is replaced by a full guide: every command, every key, 
 ### light or dark
 
 it follows your theme.
-
+<div align="center">
 <table>
 <tr>
 <td align="center"><img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/panel.png" alt="mish.eza in a dark obsidian theme" width="270"><br><sub>dark</sub></td>
 <td align="center"><img src="https://raw.githubusercontent.com/mishtiiikrishnaa/mish.eza/main/docs/screenshots/light.png" alt="mish.eza in a light obsidian theme" width="270"><br><sub>light</sub></td>
 </tr>
 </table>
+</div>
 
 ## commands
 
@@ -283,6 +284,6 @@ the plugin's own code is [MIT](LICENSE), (c) 2026 mishti. the embedded fonts kee
 
 <div align="center">
 
-made by [mishti](https://github.com/mishtiiikrishnaa)
+made with 🩵 by [mishti](https://github.com/mishtiiikrishnaa)
 
 </div>
