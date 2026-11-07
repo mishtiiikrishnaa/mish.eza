@@ -1,9 +1,9 @@
 {
   "id": "mish.eza",
   "name": "mish.eza",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "minAppVersion": "1.5.0",
-  "description": "starship prompt + eza --tree header above the file explorer, with +/- fold markers instead of arrows.",
+  "description": "starship prompt, a real eza-style tree coloured by depth, and a tiny shell (touch, mkdir, rm, mv, cd...) in place of the explorer buttons; rainbow sidebar icons.",
   "author": "mishti",
   "authorUrl": "",
   "isDesktopOnly": false

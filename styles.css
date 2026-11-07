@@ -1,9 +1,9 @@
 /* ═══════════════════════════════════════════════════════════════════════
    mish.eza · styles
-   starship prompt + eza tree. colours use the same --vf-* variables as
-   mish.fastfetch, with fallbacks.
+   starship prompt, eza tree, a little shell, rainbow sidebar icons.
+   colours use the same --vf-* variables as mish.fastfetch, with fallbacks.
    tweak these if you like:
-     --ez-line   colour of the tree lines
+     --ez-line   opacity-free base colour of the tree lines
      --ez-row    row height
    ═══════════════════════════════════════════════════════════════════════ */
 
@@ -24,12 +24,17 @@
   user-select: none;
 }
 
-/* the five little pills (new note, new folder, sort, reveal, collapse) */
-.workspace-leaf-content[data-type="file-explorer"] .nav-buttons-container {
-  display: none !important;
-}
+/* ═══ depth colours: same order as the prompt pills ═══
+   pink → peach → yellow → green → blue → lilac, then round again */
+.ez-c0 { --c: var(--vf-pink-hi, #ffa6c9); }
+.ez-c1 { --c: var(--vf-peach, #ffd6a6); }
+.ez-c2 { --c: var(--vf-yellow, #fff1a8); }
+.ez-c3 { --c: var(--vf-green, #c9ffa6); }
+.ez-c4 { --c: var(--vf-blue, #a6c9ff); }
+.ez-c5 { --c: var(--vf-lilac, #c9b0ff); }
 
-/* eza mode: hide the native list, let our tree scroll */
+/* eza mode: hide the native pills and list, let our tree scroll */
+.workspace-leaf-content[data-type="file-explorer"].ez-on .nav-buttons-container,
 .workspace-leaf-content[data-type="file-explorer"].ez-on .nav-files-container {
   display: none !important;
 }
@@ -40,7 +45,8 @@
   overflow-x: hidden;
   overflow-y: auto;
 }
-.workspace-leaf-content[data-type="file-explorer"]:not(.ez-on) .ez-tree {
+.workspace-leaf-content[data-type="file-explorer"]:not(.ez-on) .ez-tree,
+.workspace-leaf-content[data-type="file-explorer"]:not(.ez-on) .ez-foot {
   display: none;
 }
 
@@ -127,7 +133,7 @@
 /* ═══ the tree: lines are drawn by css cells, so columns never drift ═══ */
 
 .ez-tree {
-  padding-bottom: 24px;
+  padding-bottom: 6px;
 }
 
 .ez-row {
@@ -155,7 +161,8 @@
   left: 0.5ch;
   top: 0;
   bottom: 0;
-  border-left: 1px solid var(--ez-line);
+  border-left: 1px solid var(--c, var(--ez-line));
+  opacity: 0.55;
 }
 
 /* └ (only the top half of the bar) */
@@ -165,7 +172,8 @@
   left: 0.5ch;
   top: 0;
   height: 50%;
-  border-left: 1px solid var(--ez-line);
+  border-left: 1px solid var(--c, var(--ez-line));
+  opacity: 0.55;
 }
 
 /* ── */
@@ -176,7 +184,8 @@
   left: 0.5ch;
   top: 50%;
   width: 3ch;
-  border-top: 1px solid var(--ez-line);
+  border-top: 1px solid var(--c, var(--ez-line));
+  opacity: 0.55;
 }
 
 .ez-name {
@@ -186,25 +195,141 @@
   text-overflow: ellipsis;
   padding-right: 6px;
   border-radius: 4px;
+  color: var(--c, var(--vf-fg, #e8e8ed));
 }
 
-.ez-row:hover .ez-name { background: rgba(255, 166, 201, 0.08); }
-.ez-row.is-active .ez-name { background: rgba(255, 120, 165, 0.18); }
+.ez-dir { font-weight: 700; }
+
+.ez-row:hover .ez-name { background: rgba(255, 255, 255, 0.06); }
+.ez-row.is-active .ez-name {
+  outline: 1px solid var(--c, var(--vf-pink, #ff78a5));
+  outline-offset: -1px;
+}
 
 /* fold marker column: + collapsed, - expanded, blank for files */
 .ez-fold {
   display: inline-block;
   width: 2ch;
-  color: var(--vf-pink, #ff78a5);
 }
 
-/* colours by type, the way eza does it */
-.ez-dir { color: var(--vf-cyan, #a6fff0); }
-.ez-doc { color: var(--vf-fg, #e8e8ed); }
-.ez-img { color: var(--vf-pink, #ff78a5); }
-.ez-pdf { color: var(--vf-peach, #ffd6a6); }
-.ez-cv  { color: var(--vf-lilac, #c9b0ff); }
-.ez-etc { color: var(--vf-fg, #e8e8ed); }
+/* ═══ the little shell ═══ */
+
+.ez-foot {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 6px -10px 0;
+  padding: 6px 10px 8px;
+  background: var(--background-secondary, #0f0f12);
+  border-top: 1px solid var(--ez-line);
+  font-size: 11.5px;
+}
+
+.ez-out {
+  margin-bottom: 4px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--vf-green, #c9ffa6);
+}
+.ez-out:empty { display: none; }
+.ez-out.is-bad { color: var(--vf-pink, #ff78a5); }
+
+/* the clickable commands, coloured like the pills */
+.ez-keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  margin-bottom: 4px;
+}
+.ez-key {
+  cursor: pointer;
+  color: var(--c);
+}
+.ez-key:hover { text-decoration: underline; }
+
+.ez-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ez-cwd {
+  flex: 0 1 auto;
+  max-width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vf-peach, #ffd6a6);
+}
+
+/* obsidian styles text inputs heavily; strip it all back to a bare prompt */
+.ez-root .ez-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: auto !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none;
+  background: transparent !important;
+  font: inherit;
+  color: var(--vf-fg, #e8e8ed);
+  caret-color: var(--vf-pink-hi, #ffa6c9);
+  user-select: text;
+}
+.ez-root .ez-input::placeholder {
+  color: var(--vf-dim, #6d6d7a);
+  opacity: 0.8;
+}
+
+/* ═══ rainbow sidebar icons ═══
+   ribbon icons and the sidebar tab icons, cycling through the pill colours.
+   (static; swap in an animation here if you ever want them to drift.) */
+
+.workspace-ribbon .side-dock-ribbon-action:nth-child(6n+1),
+.mod-left-split .workspace-tab-header:nth-child(6n+1),
+.mod-right-split .workspace-tab-header:nth-child(6n+1) { --ez-ic: var(--vf-pink-hi, #ffa6c9); }
+
+.workspace-ribbon .side-dock-ribbon-action:nth-child(6n+2),
+.mod-left-split .workspace-tab-header:nth-child(6n+2),
+.mod-right-split .workspace-tab-header:nth-child(6n+2) { --ez-ic: var(--vf-peach, #ffd6a6); }
+
+.workspace-ribbon .side-dock-ribbon-action:nth-child(6n+3),
+.mod-left-split .workspace-tab-header:nth-child(6n+3),
+.mod-right-split .workspace-tab-header:nth-child(6n+3) { --ez-ic: var(--vf-yellow, #fff1a8); }
+
+.workspace-ribbon .side-dock-ribbon-action:nth-child(6n+4),
+.mod-left-split .workspace-tab-header:nth-child(6n+4),
+.mod-right-split .workspace-tab-header:nth-child(6n+4) { --ez-ic: var(--vf-green, #c9ffa6); }
+
+.workspace-ribbon .side-dock-ribbon-action:nth-child(6n+5),
+.mod-left-split .workspace-tab-header:nth-child(6n+5),
+.mod-right-split .workspace-tab-header:nth-child(6n+5) { --ez-ic: var(--vf-blue, #a6c9ff); }
+
+.workspace-ribbon .side-dock-ribbon-action:nth-child(6n+6),
+.mod-left-split .workspace-tab-header:nth-child(6n+6),
+.mod-right-split .workspace-tab-header:nth-child(6n+6) { --ez-ic: var(--vf-lilac, #c9b0ff); }
+
+.workspace-ribbon .side-dock-ribbon-action,
+.mod-left-split .workspace-tab-header .workspace-tab-header-inner-icon,
+.mod-right-split .workspace-tab-header .workspace-tab-header-inner-icon {
+  --icon-color: var(--ez-ic);
+  --icon-color-hover: var(--ez-ic);
+  --icon-color-active: var(--ez-ic);
+  --icon-color-focused: var(--ez-ic);
+  color: var(--ez-ic) !important;
+}
+
+.workspace-ribbon .side-dock-ribbon-action:hover,
+.mod-left-split .workspace-tab-header:hover .workspace-tab-header-inner-icon,
+.mod-right-split .workspace-tab-header:hover .workspace-tab-header-inner-icon {
+  filter: brightness(1.25);
+}
+
+/* sidebar tabs that aren't the active one sit a little dimmer */
+.mod-left-split .workspace-tab-header:not(.is-active) .workspace-tab-header-inner-icon,
+.mod-right-split .workspace-tab-header:not(.is-active) .workspace-tab-header-inner-icon {
+  opacity: 0.7;
+}
 
 /* ═══ native explorer fold markers (only visible if you toggle it back on) ═══ */
 
