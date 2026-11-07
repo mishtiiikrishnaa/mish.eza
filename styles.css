@@ -113,11 +113,15 @@
 .ez-user  { background: var(--vf-pink-hi, #ffa6c9); }
 .ez-path  {
   display: block;
+  flex: 0 0 auto;              /* the full vault name always shows; main.js scales the bar to fit */
+  background: var(--vf-peach, #ffd6a6);
+}
+/* only below half size does the name start to ellipsise */
+.ez-bar.is-squeezed .ez-path {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  background: var(--vf-peach, #ffd6a6);
 }
 .ez-git   { background: var(--vf-yellow, #fff1a8); }
 .ez-node  { background: var(--vf-green, #c9ffa6); }
@@ -252,6 +256,42 @@
 }
 .ez-out:empty { display: none; }
 .ez-out.is-bad { color: var(--vf-pink, #ff78a5); }
+
+/* ═══ prompt syntax highlighting ═══
+   no bold / letter-spacing here on purpose: the coloured copy must be exactly
+   as wide as the input's own text or the caret drifts. */
+
+.ez-hl {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  white-space: pre;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  color: var(--vf-fg, #e8e8ed);
+}
+.ez-hl-in { display: inline-block; white-space: pre; }
+
+.ez-hl-cmd  { color: var(--vf-green, #c9ffa6); }                         /* a command that exists */
+.ez-hl-bad  { color: var(--vf-pink, #ff78a5); }                          /* unknown command / bad sort key */
+.ez-hl-flag { color: var(--vf-lilac, #c9b0ff); }                         /* -r */
+.ez-hl-key  { color: var(--vf-cyan, #a6fff0); }                          /* sort key */
+.ez-hl-dir  { color: var(--vf-blue, #a6c9ff); text-decoration: underline; }    /* existing folder */
+.ez-hl-file { color: var(--vf-yellow, #fff1a8); text-decoration: underline; }  /* existing file */
+.ez-hl-str  { color: var(--vf-peach, #ffd6a6); }                         /* a quoted name */
+.ez-hl-q    { color: var(--vf-peach, #ffd6a6); opacity: 0.6; }           /* the quote marks */
+.ez-hl-sep  { opacity: 0.45; }                                           /* the / in a path */
+
+/* example lines in the help page */
+.ez-h-ex {
+  margin-top: 3px;
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ez-h-exline { color: var(--vf-fg, #e8e8ed); }
 
 /* ═══ the help page ═══
    takes the tree's place (the prompt stays put below it) so it has the whole
@@ -398,8 +438,15 @@
   gap: 6px;
 }
 /* obsidian styles text inputs heavily; strip it all back to a bare prompt */
-.ez-root .ez-input {
+.ez-inwrap {
+  position: relative;
   flex: 1 1 auto;
+  min-width: 0;
+}
+.ez-root .ez-input {
+  display: block;
+  position: relative;
+  width: 100%;
   min-width: 0;
   height: auto !important;
   padding: 0 !important;
@@ -408,7 +455,7 @@
   outline: none;
   background: transparent !important;
   font: inherit;
-  color: var(--vf-fg, #e8e8ed);
+  color: transparent !important;       /* the coloured copy behind it shows instead */
   caret-color: var(--vf-pink-hi, #ffa6c9);
   user-select: text;
 }

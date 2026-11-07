@@ -23,6 +23,39 @@ const el = (tag, cls, text) => {
   return node;
 };
 
+/* ── keep the whole vault name visible ───────────────────────────────────
+   the orange path pill never truncates. when the prompt is wider than the
+   room it has, the whole bar is scaled down just enough to fit (css zoom),
+   and is re-fitted whenever the pane resizes. only below half size does the
+   pill start to ellipsise instead. */
+const fitBar = (bar, watch) => {
+  const FLOOR = 0.5;
+  let queued = false;
+
+  const fit = () => {
+    bar.classList.remove('is-squeezed');
+    bar.style.zoom = '';                       /* measure at natural size */
+    const have = bar.clientWidth;
+    const need = bar.scrollWidth;
+    if (!have || need <= have) return;         /* fits (or is hidden): leave it alone */
+    let k = have / need;
+    if (k < FLOOR) { k = FLOOR; bar.classList.add('is-squeezed'); }
+    bar.style.zoom = String(k);
+  };
+
+  const schedule = () => {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => { queued = false; fit(); });
+  };
+
+  const ro = new ResizeObserver(schedule);
+  watch.forEach((node) => ro.observe(node));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+  schedule();
+  return schedule;
+};
+
 /* ── rainbow scrollbar ──────────────────────────────────────────────────
    the native scrollbar is hidden (see styles.css) and this draws a thin
    rainbow thumb in its place, so it looks the same whatever theme or snippet
@@ -106,7 +139,7 @@ const MULTI_CMDS = new Set(['rename', 'mv', 'cp']);
 const KEYS = [
   ['touch', 'new note: click, then type a name'],
   ['mkdir', 'new folder: click, then type a name'],
-  ['rename', 'rename the open note: click, then type the new name'],
+  ['rename', 'rename the open note, or a file in a folder: rename "folder/old" "new name"'],
   ['cp', 'copy the open note'],
   ['delete', 'delete to the system trash: click, then type a name'],
   ['sort', 'cycle the sort order'],
@@ -122,17 +155,25 @@ const KEYS = [
    forms as [arguments, description], and an optional key table (sort) */
 const HELP = [
   { title: 'files', items: [
-    { cmd: 'touch', c: 0, forms: [['<name>', 'new note, .md added · touch ideas/new']] },
-    { cmd: 'mkdir', c: 1, forms: [['<name>', 'new folder · mkdir ideas']] },
-    { cmd: 'rename', c: 2, forms: [
-      ['"<new name>"', 'rename the note you have open'],
-      ['"<from>" "<new name>"', 'rename any file, it stays in its folder'],
+    { cmd: 'touch', c: 0, forms: [
+      ['<name>', 'new note, .md added', 'touch ideas/new'],
     ] },
-    { cmd: 'mv', c: 3, forms: [['"<from>" "<to>"', 'move a file or folder into another folder']] },
-    { cmd: 'cp', c: 4, forms: [['[<from>] [<to>]', 'copy · no names = copy the open note']] },
+    { cmd: 'mkdir', c: 1, forms: [
+      ['<name>', 'new folder', 'mkdir ideas'],
+    ] },
+    { cmd: 'rename', c: 2, forms: [
+      ['"<new name>"', 'rename the note you have open', 'rename "better title"'],
+      ['"<folder>/<old>" "<new name>"', 'rename a file inside a folder: give its path first, then just the new name (it stays in that folder)', 'rename "ideas/old" "new name"'],
+    ] },
+    { cmd: 'mv', c: 3, forms: [
+      ['"<from>" "<to>"', 'move a file or folder into another folder', 'mv "ideas/old" archive'],
+    ] },
+    { cmd: 'cp', c: 4, forms: [
+      ['[<from>] [<to>]', 'copy · no names = copy the open note'],
+    ] },
     { cmd: 'rm', c: 5, forms: [
-      ['<name>', 'delete to the system trash (or: delete)'],
-      ['-r <name>', 'needed for a folder that isn\'t empty'],
+      ['<name>', 'delete to the system trash (or: delete)', 'rm "ideas/old"'],
+      ['-r <name>', 'needed for a folder that isn\'t empty', 'rm -r ideas'],
     ] },
   ] },
   { title: 'tree', items: [
@@ -178,12 +219,20 @@ const buildHelp = (close) => {
 
     const grid = el('div', 'ez-h-grid');
     section.items.forEach((h, n) => {
-      h.forms.forEach(([args, desc], i) => {
+      h.forms.forEach(([args, desc, example], i) => {
         const first = i === 0 && n > 0 ? ' is-first' : '';
         const name = el('div', 'ez-h-cmd ez-c' + h.c + first, i === 0 ? h.cmd : '');
         const body = el('div', 'ez-h-body' + first);
         if (args) body.appendChild(el('div', 'ez-h-args', args));
         body.appendChild(el('div', 'ez-h-desc', desc));
+        if (example) {                       /* a real line as you'd type it, highlighted */
+          const ex = el('div', 'ez-h-ex');
+          ex.appendChild(el('span', 'ez-chev', '❯ '));
+          const host = el('span', 'ez-h-exline');
+          paintLine(host, example);
+          ex.appendChild(host);
+          body.appendChild(ex);
+        }
 
         if (h.keys && i === h.forms.length - 1) {
           const table = el('div', 'ez-h-keys');
@@ -235,6 +284,65 @@ const tokenize = (line) => {
   let m;
   while ((m = re.exec(line))) out.push(m[1] ?? m[2] ?? m[3]);
   return out;
+};
+
+/* ── syntax highlighting for the prompt ──────────────────────────────────
+   splits a line into tokens WITHOUT losing a single character (the coloured
+   copy has to line up exactly with the text in the input), and paints each
+   one into `host`. pass `lookup(path)` to colour names that exist; leave it
+   out for static examples (help). */
+const HL_RE = /\s+|"[^"]*"?|'[^']*'?|[^\s"']+/g;
+
+const paintLine = (host, text, lookup) => {
+  host.replaceChildren();
+  const put = (cls, str) => {
+    if (str) host.appendChild(cls ? el('span', cls, str) : document.createTextNode(str));
+  };
+  /* a/b/c with the slashes dimmed */
+  const putPath = (cls, str) => {
+    str.split('/').forEach((part, i) => {
+      if (i) put('ez-hl-sep', '/');
+      put(cls, part);
+    });
+  };
+
+  let cmd = null;
+  for (const tok of text.match(HL_RE) || []) {
+    if (/^\s+$/.test(tok)) { put('', tok); continue; }
+
+    /* first word: the command (green = valid, plain = could still become one, pink = unknown) */
+    if (cmd === null) {
+      cmd = tok;
+      if (COMMANDS.includes(tok)) put('ez-hl-cmd', tok);
+      else if (COMMANDS.some((c) => c.startsWith(tok))) put('', tok);
+      else put('ez-hl-bad', tok);
+      continue;
+    }
+
+    /* quotes are kept as separate dim pieces around the inside */
+    const q = tok[0] === '"' || tok[0] === "'" ? tok[0] : '';
+    let inner = q ? tok.slice(1) : tok;
+    let closed = false;
+    if (q && inner.endsWith(q)) { inner = inner.slice(0, -1); closed = true; }
+
+    let cls = '';
+    let pathy = false;
+    if (!q && /^-{1,2}[A-Za-z][\w-]*$/.test(tok)) {
+      cls = 'ez-hl-flag';
+    } else if (cmd === 'sort') {
+      cls = SORTS.includes(inner) ? 'ez-hl-key' : 'ez-hl-bad';
+    } else if (PATH_CMDS.has(cmd)) {
+      pathy = true;
+      const found = lookup && inner ? lookup(inner) : null;
+      if (found) cls = Array.isArray(found.children) ? 'ez-hl-dir' : 'ez-hl-file';
+      else if (q) cls = 'ez-hl-str';
+    }
+
+    if (q) put('ez-hl-q', q);
+    if (pathy) putPath(cls, inner);
+    else put(cls, inner);
+    if (closed) put('ez-hl-q', q);
+  }
 };
 
 const parentOf = (path) => {
@@ -459,7 +567,8 @@ module.exports = class MishEza extends Plugin {
     const foot = this.buildFoot(root);
     root.appendChild(foot.node);
 
-    root.__ez = { bar, tree, arg, help, clock: null, input: foot.input, out: foot.out };
+    const fit = fitBar(bar, [scroll]);   /* keeps the full vault name on screen */
+    root.__ez = { bar, tree, arg, help, fit, clock: null, input: foot.input, out: foot.out };
     rainbowBar(scroll);
     rainbowBar(help);
     rainbowBar(foot.out);
@@ -490,6 +599,7 @@ module.exports = class MishEza extends Plugin {
     });
 
     this.tick();
+    if (refs.fit) refs.fit();
   }
 
   /* the little shell: clickable commands + a real prompt you can type in */
@@ -519,8 +629,32 @@ module.exports = class MishEza extends Plugin {
     input.spellcheck = false;
     input.setAttribute('autocomplete', 'off');
     input.setAttribute('autocapitalize', 'off');
-    line.appendChild(input);
+
+    /* syntax highlighting: the input's own text is transparent, and a coloured
+       copy sits behind it (same font, same width per character, so it lines up) */
+    const wrap = el('div', 'ez-inwrap');
+    const hl = el('div', 'ez-hl');
+    const hlIn = el('span', 'ez-hl-in');
+    hl.appendChild(hlIn);
+    wrap.appendChild(hl);
+    wrap.appendChild(input);
+    line.appendChild(wrap);
     node.appendChild(line);
+
+    const paint = () => {
+      try { paintLine(hlIn, input.value, (p) => this.lookup(p)); } catch (e) { hlIn.textContent = input.value; }
+      hlIn.style.transform = 'translateX(' + (-input.scrollLeft) + 'px)';   /* follow a long line as it scrolls */
+    };
+    /* catch programmatic changes too (tab completion, history, clicking a command) */
+    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+    Object.defineProperty(input, 'value', {
+      configurable: true,
+      get() { return desc.get.call(this); },
+      set(v) { desc.set.call(this, v); paint(); },
+    });
+    ['input', 'scroll', 'keyup', 'mouseup', 'focus', 'select'].forEach((ev) => input.addEventListener(ev, paint));
+    input.addEventListener('keydown', () => requestAnimationFrame(paint));
+    paint();
 
     /* enter runs, tab completes, up/down walk the history, escape clears */
     let at = -1;
@@ -857,17 +991,17 @@ module.exports = class MishEza extends Plugin {
     if (args.length === 1) {
       src = this.app.workspace.getActiveFile();
       name = args[0];
-      if (!src) throw new Error('no note is open.  use:  rename "<from>" "<new name>"');
+      if (!src) throw new Error('no note is open.  use:  rename "<folder>/<old>" "<new name>"');
     } else if (args.length === 2) {
       src = this.lookup(args[0]);
       name = args[1];
       if (!src) throw new Error(args[0] + ': no such file or directory');
     } else {
-      throw new Error('usage: rename "<new name>"   or   rename "<from>" "<new name>"');
+      throw new Error('usage: rename "<new name>"   or   rename "<folder>/<old>" "<new name>"');
     }
 
     if (src === this.app.vault.getRoot()) throw new Error('refusing to rename the vault root');
-    if (name.includes('/')) throw new Error('a new name can\'t contain /   (use mv to move things)');
+    if (name.includes('/')) throw new Error('the new name is just a name, no /.  put the folder in the first part:  rename \"ideas/old\" \"new name\"   (mv moves things)');
     if (src instanceof TFile && src.extension
         && !name.toLowerCase().endsWith('.' + src.extension.toLowerCase())) {
       name += '.' + src.extension;

@@ -1,7 +1,7 @@
 {
   "id": "mish.eza",
   "name": "mish.eza",
-  "version": "1.4.1",
+  "version": "1.6.0",
   "minAppVersion": "1.5.0",
   "description": "starship prompt, a real eza-style tree coloured by depth, and a tiny shell (touch, mkdir, rename, cp, rm...) in place of the explorer buttons; rainbow sidebar icons.",
   "author": "mishti",
