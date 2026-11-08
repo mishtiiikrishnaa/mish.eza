@@ -467,7 +467,10 @@ body.theme-light {
 
 .ez-pill-wrap {
   position: fixed;
-  z-index: 70;                       /* above the sidebar, in the same layer as obsidian's tooltips */
+  /* above the side dock (10) and status bar (15), but below everything obsidian pops up:
+     hover previews (30), modals (50), notices (60), menus (65) and tooltips (70).
+     it used to sit at 70, so it drew on top of the vault switcher and context menus. */
+  z-index: 20;
   pointer-events: none;              /* the row underneath keeps the mouse, so nothing flickers */
   max-width: calc(100vw - 16px);
   filter: drop-shadow(0 2px 5px var(--mz-shadow));   /* on the wrapper: a shadow on the clipped pill itself would be cut off */

@@ -97,7 +97,50 @@ const deepMerge = (base, over) => {
   return out;
 };
 
+/* ── lowercase ui ────────────────────────────────────────────────────────
+   the text in the settings tab is written in lowercase, to match the terminal look.
+   with the "lowercase ui" setting off, ui() shows it in sentence case instead (a capital
+   at the start of each sentence, plus the few names that need one). only text that
+   obsidian itself shows goes through ui(): the settings tab, its tooltips and its
+   messages. the terminal panel is always lowercase. */
+const uiCase = { lower: true };
+
+const PROPER = [
+  [/\bcmu typewriter\b/g, 'CMU Typewriter'],
+  [/\bobsidian\b/g, 'Obsidian'],
+  [/\bcss\b/g, 'CSS'],
+  [/\bui\b/g, 'UI'],
+  [/\bpdfs\b/g, 'PDFs'],
+  [/\bmish\b(?!\.[a-z])/g, 'Mish'],      /* the palette, not mish.eza / mish.fastfetch */
+  [/\bpm\b/g, 'PM'],
+  [/(?<![\w./-])git\b(?!\/)/g, 'Git'],      /* not the .git folder */
+];
+
+/* commands stay lowercase even at the start of a sentence */
+const KEEP_LOWER = new Set(['rm', 'eza', 'mv', 'cp', 'mkdir', 'touch']);
+
+const sentence = (text) => {
+  let out = String(text);
+  for (const [re, name] of PROPER) out = out.replace(re, name);
+  return out.replace(/(^|[.!?]\s+)([a-z][\w-]*)/g, (m, lead, word) => (
+    KEEP_LOWER.has(word) ? m : lead + word.charAt(0).toUpperCase() + word.slice(1)
+  ));
+};
+
+const ui = (text) => (uiCase.lower ? text : sentence(text));
+
+const uiOptions = (options) => Object.fromEntries(
+  Object.entries(options).map(([key, label]) => [key, ui(label)])
+);
+
+/* a Setting whose name and description go through ui() */
+class UiSetting extends Setting {
+  setName(name) { return super.setName(typeof name === 'string' ? ui(name) : name); }
+  setDesc(desc) { return super.setDesc(typeof desc === 'string' ? ui(desc) : desc); }
+}
+
 const DEFAULT_SETTINGS = {
+  lowercaseUi: true,     /* settings text in lowercase (true) or sentence case (false) */
   username: '',          /* empty = auto-detect */
   font: 'bundled',       /* bundled | obsidian | system | family:<name> | custom */
   customFont: '',
@@ -154,6 +197,7 @@ const sanitise = (cfg) => {
   if (!Array.isArray(p.colours) || p.colours.length !== 6 || !p.colours.every((c) => HEX.test(c))) {
     p.colours = DARK_FILLS.slice();
   }
+  cfg.lowercaseUi = cfg.lowercaseUi !== false;
   return cfg;
 };
 
@@ -780,7 +824,7 @@ class EzaSettingTab extends PluginSettingTab {
     const s = plugin.settings;
     containerEl.empty();
 
-    const flag = (group, key, name, desc, after) => new Setting(containerEl)
+    const flag = (group, key, name, desc, after) => new UiSetting(containerEl)
       .setName(name)
       .setDesc(desc || '')
       .addToggle((toggle) => toggle
@@ -805,18 +849,18 @@ class EzaSettingTab extends PluginSettingTab {
     const holder = (group) => (group ? s[group] : s);
     const dflt = (group, key) => (group ? DEFAULT_SETTINGS[group] : DEFAULT_SETTINGS)[key];
 
-    const drop = (group, key, name, desc, options, kind) => new Setting(containerEl)
+    const drop = (group, key, name, desc, options, kind) => new UiSetting(containerEl)
       .setName(name)
       .setDesc(desc || '')
       .addDropdown((d) => d
-        .addOptions(options)
+        .addOptions(uiOptions(options))
         .setValue(String(holder(group)[key]))
         .onChange((value) => {
           holder(group)[key] = value;
           apply(kind);
         }));
 
-    const tog = (group, key, name, desc, kind) => new Setting(containerEl)
+    const tog = (group, key, name, desc, kind) => new UiSetting(containerEl)
       .setName(name)
       .setDesc(desc || '')
       .addToggle((t) => t
@@ -829,7 +873,7 @@ class EzaSettingTab extends PluginSettingTab {
     /* a slider with a little reset arrow that puts the default back */
     const slide = (group, key, name, desc, lo, hi, step, kind, unit) => {
       let comp = null;
-      return new Setting(containerEl)
+      return new UiSetting(containerEl)
         .setName(name)
         .setDesc(desc || '')
         .addSlider((sl) => {
@@ -844,7 +888,7 @@ class EzaSettingTab extends PluginSettingTab {
         })
         .addExtraButton((b) => b
           .setIcon('rotate-ccw')
-          .setTooltip('back to the default (' + dflt(group, key) + (unit || '') + ')')
+          .setTooltip(ui('back to the default (' + dflt(group, key) + (unit || '') + ')'))
           .onClick(() => {
             holder(group)[key] = dflt(group, key);
             comp.setValue(dflt(group, key));
@@ -852,10 +896,23 @@ class EzaSettingTab extends PluginSettingTab {
           }));
     };
 
-    /* ── who you are ── */
-    new Setting(containerEl).setName('identity').setHeading();
+    /* ── the first setting: how the text in this tab is cased ── */
+    new UiSetting(containerEl)
+      .setName('lowercase ui')
+      .setDesc('show the text in this tab, its tooltips and its messages in lowercase, to match the terminal look. turn it off for normal sentence case.')
+      .addToggle((toggle) => toggle
+        .setValue(s.lowercaseUi !== false)
+        .onChange(async (value) => {
+          s.lowercaseUi = value;
+          uiCase.lower = value;
+          await plugin.saveSettings();
+          this.display();
+        }));
 
-    new Setting(containerEl)
+    /* ── who you are ── */
+    new UiSetting(containerEl).setName('identity').setHeading();
+
+    new UiSetting(containerEl)
       .setName('user name')
       .setDesc('shown in the first pill. leave empty to use the name your system reports.')
       .addText((text) => text
@@ -867,7 +924,7 @@ class EzaSettingTab extends PluginSettingTab {
         }));
 
     /* ── what the prompt shows ── */
-    new Setting(containerEl).setName('prompt').setHeading();
+    new UiSetting(containerEl).setName('prompt').setHeading();
     flag('pills', 'user', 'user pill', 'your name, with a logo for your operating system.');
     flag('pills', 'vault', 'vault pill', 'the name of this vault.');
     flag('pills', 'git', 'git pill', 'the current branch, when this vault is a git repository. it reads the file .git/HEAD in the vault folder and nothing else.',
@@ -875,7 +932,7 @@ class EzaSettingTab extends PluginSettingTab {
     flag('pills', 'time', 'time pill', 'the time of day.');
     drop(null, 'pillShape', 'pill shape', 'arrow is the powerline look. round and flat drop the arrow tips (and the little >>> bridge before the clock) and use gaps instead.',
       { arrow: 'arrow (powerline)', round: 'round', flat: 'flat' }, 'look');
-    new Setting(containerEl)
+    new UiSetting(containerEl)
       .setName('vault pill text')
       .setDesc('what the second pill says. leave it empty for ~/ and the vault name.')
       .addText((text) => text
@@ -889,18 +946,18 @@ class EzaSettingTab extends PluginSettingTab {
     tog('clock', 'seconds', 'show seconds', 'the clock pill already ticks every second. the card never changes width.', 'bar');
 
     /* ── colours ── */
-    new Setting(containerEl).setName('colours').setHeading();
+    new UiSetting(containerEl).setName('colours').setHeading();
 
     const pickers = [];
     let presetDrop = null;
     let refreshing = false;       /* setValue on a picker must not count as the user picking */
     const shown = () => (s.palette.preset === 'theme' ? themeFills() : s.palette.colours);
 
-    const presets = { theme: 'mish' };
-    Object.keys(PALETTES).forEach((k) => { presets[k] = k; });
-    presets.custom = 'custom';
+    const presets = { theme: ui('mish') };
+    Object.keys(PALETTES).forEach((k) => { presets[k] = ui(k); });
+    presets.custom = ui('custom');
 
-    new Setting(containerEl)
+    new UiSetting(containerEl)
       .setName('palette')
       .setDesc('the six colours of the rainbow. they colour the prompt pills, the tree levels, the card border, the scrollbar and the explorer tab icon. mish is the default: the pastel rainbow this plugin ships, and it follows the colours of your obsidian theme if the theme sets them. pick a preset, then change any colour below. in light mode the text versions are darkened for you.')
       .addDropdown((d) => {
@@ -920,7 +977,7 @@ class EzaSettingTab extends PluginSettingTab {
       })
       .addExtraButton((b) => b
         .setIcon('rotate-ccw')
-        .setTooltip('back to mish')
+        .setTooltip(ui('back to mish'))
         .onClick(() => {
           s.palette.preset = 'theme';
           presetDrop.setValue('theme');
@@ -931,7 +988,7 @@ class EzaSettingTab extends PluginSettingTab {
         }));
 
     SLOTS.forEach((slot, i) => {
-      new Setting(containerEl)
+      new UiSetting(containerEl)
         .setName('colour ' + (i + 1))
         .setDesc(slot.used)
         .addColorPicker((c) => {
@@ -949,7 +1006,7 @@ class EzaSettingTab extends PluginSettingTab {
 
     let inkPicker = null;
     const autoInk = () => (lightTheme() ? '#2a2430' : '#0f0f12');
-    new Setting(containerEl)
+    new UiSetting(containerEl)
       .setName('pill text colour')
       .setDesc('the text on every pill (prompt and hover). automatic = dark ink. try white with a dark palette.')
       .addColorPicker((c) => {
@@ -961,7 +1018,7 @@ class EzaSettingTab extends PluginSettingTab {
       })
       .addExtraButton((b) => b
         .setIcon('rotate-ccw')
-        .setTooltip('back to automatic')
+        .setTooltip(ui('back to automatic'))
         .onClick(() => {
           s.inkColour = '';
           inkPicker.setValue(autoInk());
@@ -969,8 +1026,8 @@ class EzaSettingTab extends PluginSettingTab {
         }));
 
     /* ── the tree ── */
-    new Setting(containerEl).setName('tree').setHeading();
-    new Setting(containerEl)
+    new UiSetting(containerEl).setName('tree').setHeading();
+    new UiSetting(containerEl)
       .setName('folders first')
       .setDesc('list folders before files, like eza --group-directories-first.')
       .addToggle((toggle) => toggle
@@ -996,14 +1053,14 @@ class EzaSettingTab extends PluginSettingTab {
     slide('tree', 'lineOpacity', 'line strength', 'how strong the lines are, in percent.', 5, 100, 5, 'look', '%');
 
     /* ── hover reveal ── */
-    new Setting(containerEl).setName('hover reveal').setHeading();
+    new UiSetting(containerEl).setName('hover reveal').setHeading();
     flag('show', 'reveal', 'reveal full names on hover', 'hover a name that is cut off and a colour pill, like the prompt ones, shows the whole thing.',
       () => plugin.hidePill());
     tog('revealPill', 'always', 'also on names that fit', 'show the pill on every name you hover, not only the cut-off ones.', 'look');
     slide('revealPill', 'delay', 'delay', 'how long the mouse rests on a name before the pill appears.', 0, 600, 20, 'look', ' ms');
 
     /* ── card and layout ── */
-    new Setting(containerEl).setName('card and layout').setHeading();
+    new UiSetting(containerEl).setName('card and layout').setHeading();
     drop('card', 'width', 'card width', 'fit = as wide as the prompt (the same size as mish.fastfetch). full = the whole sidebar.',
       { fit: 'fit the prompt', full: 'full width' }, 'look');
     drop('card', 'hAlign', 'horizontal position', 'only matters for the fit width.', { centre: 'centre', left: 'left' }, 'look');
@@ -1017,8 +1074,8 @@ class EzaSettingTab extends PluginSettingTab {
     slide('card', 'pad', 'outer margin', 'space between the card and the edge of the sidebar.', 0, 32, 1, 'look', 'px');
 
     /* ── the shell ── */
-    new Setting(containerEl).setName('shell').setHeading();
-    new Setting(containerEl)
+    new UiSetting(containerEl).setName('shell').setHeading();
+    new UiSetting(containerEl)
       .setName('ask before deleting')
       .setDesc('rm and delete ask y or n in the prompt before anything goes to the trash. rm -f skips the question.')
       .addToggle((toggle) => toggle
@@ -1032,13 +1089,13 @@ class EzaSettingTab extends PluginSettingTab {
     flag('show', 'keys', 'clickable commands', 'the row of command names you can click (touch, mkdir, rename and so on). you can still type them.');
 
     /* ── font ── */
-    new Setting(containerEl).setName('appearance').setHeading();
+    new UiSetting(containerEl).setName('appearance').setHeading();
 
     const choices = () => {
       const opts = {
-        bundled: 'cmu typewriter (bundled)',
-        obsidian: "obsidian's monospace font",
-        system: 'system monospace',
+        bundled: ui('cmu typewriter (bundled)'),
+        obsidian: ui("obsidian's monospace font"),
+        system: ui('system monospace'),
       };
       const names = new Set(CANDIDATE_FONTS.filter((n) => isInstalled(n)));
       this.scanned.forEach((n) => names.add(n));
@@ -1046,13 +1103,13 @@ class EzaSettingTab extends PluginSettingTab {
       Array.from(names)
         .sort((a, b) => a.localeCompare(b))
         .forEach((n) => { opts['family:' + n] = n; });
-      opts.custom = 'custom…';
+      opts.custom = ui('custom…');
       return opts;
     };
 
     let custom = null;
 
-    new Setting(containerEl)
+    new UiSetting(containerEl)
       .setName('font')
       .setDesc('the default font is bundled with the plugin, so nothing needs installing. or pick a monospace font from this computer.')
       .addDropdown((dropdown) => {
@@ -1067,7 +1124,7 @@ class EzaSettingTab extends PluginSettingTab {
           });
       });
 
-    custom = new Setting(containerEl)
+    custom = new UiSetting(containerEl)
       .setName('custom font')
       .setDesc('any css font-family list, such as "JetBrains Mono", monospace')
       .addText((text) => text
@@ -1079,37 +1136,37 @@ class EzaSettingTab extends PluginSettingTab {
         }));
     custom.settingEl.hidden = s.font !== 'custom';
 
-    new Setting(containerEl)
+    new UiSetting(containerEl)
       .setName('find monospace fonts')
       .setDesc("adds every monospace font installed on this computer to the menu above. obsidian may ask for permission first. if this version can't do it, the menu still lists the common fonts it finds.")
       .addButton((button) => button
-        .setButtonText('scan')
+        .setButtonText(ui('scan'))
         .onClick(async () => {
           button.setDisabled(true);
           try {
             const list = await scanSystemFonts();
             if (!list) {
-              new Notice("this version of obsidian can't list system fonts. use a custom font instead.");
+              new Notice(ui("this version of obsidian can't list system fonts. use a custom font instead."));
             } else {
               this.scanned = list;
               this.fontDropdown.selectEl.empty();
               this.fontDropdown.addOptions(choices());
               this.fontDropdown.setValue(s.font);
-              new Notice('found ' + list.length + ' monospace fonts.');
+              new Notice(ui('found ' + list.length + ' monospace fonts.'));
             }
           } catch (e) {
-            new Notice('could not read the font list. use a custom font instead.');
+            new Notice(ui('could not read the font list. use a custom font instead.'));
           }
           button.setDisabled(false);
         }));
 
     /* ── reset ── */
-    new Setting(containerEl).setName('reset').setHeading();
-    new Setting(containerEl)
+    new UiSetting(containerEl).setName('reset').setHeading();
+    new UiSetting(containerEl)
       .setName('reset appearance')
       .setDesc('puts every colour, shape, tree, hover and card option back to the default. your name, prompt pills, font and shell settings are not touched.')
       .addButton((button) => button
-        .setButtonText('reset')
+        .setButtonText(ui('reset'))
         .setWarning()
         .onClick(async () => {
           for (const k of ['palette', 'inkColour', 'pillShape', 'tree', 'card', 'revealPill']) {
@@ -1136,6 +1193,7 @@ module.exports = class MishEza extends Plugin {
     /* data.json holds the settings, the folded folders and the sort order */
     const saved = (await this.loadData()) || {};
     this.settings = sanitise(deepMerge(clone(DEFAULT_SETTINGS), saved.settings || {}));
+    uiCase.lower = this.settings.lowercaseUi;
     this.open = new Set(saved.open || []);
     this.sortKey = SORTS.includes(saved.sort) ? saved.sort : 'name';
 
