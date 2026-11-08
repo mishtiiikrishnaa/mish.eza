@@ -13,7 +13,9 @@
      api. nothing is ever sent to the operating system, and nothing is run.
    - the prompt grows a git branch when the vault is a git repository
    - names are cut off with an ellipsis (the card never resizes). hover one and it
-     grows into a prompt-style colour pill with the whole name, in its depth colour
+     grows into a prompt-style colour pill with the whole name, in its depth colour.
+     the reveal command (and, by default, simply opening a note or starting obsidian)
+     lights up the open note with the same pill, and it stays
    - nearly everything is a setting: the six rainbow colours (with presets), pill
      shape, clock, tree colours / lines / indent / sizes, the border, card position
    - everything (prompt, tree and the shell line) sits in one bordered card,
@@ -104,7 +106,8 @@ const DEFAULT_SETTINGS = {
   pills: { user: true, vault: true, git: true, time: true },
   show: { command: true, keys: true, reveal: true, shell: true },
 
-  /* the rainbow: preset = theme | custom | one of PALETTES. colours are the six fills. */
+  /* the rainbow: preset = theme | custom | one of PALETTES. colours are the six fills.
+     `theme` is the default and is shown in the settings as "mish". */
   palette: { preset: 'theme', colours: DARK_FILLS.slice() },
   inkColour: '',         /* text on the pills. empty = automatic (dark ink) */
 
@@ -119,7 +122,7 @@ const DEFAULT_SETTINGS = {
     reverse: false,        /* flip the sort order */
     extensions: 'all',     /* all | md (hide .md) | none (hide every extension) */
     activeStyle: 'outline',/* outline | fill | none: how the open note is marked */
-    autoReveal: false,     /* follow the open note */
+    autoReveal: true,      /* follow the open note: unfold, scroll, light up the pill */
     fontSize: 12,
     rowHeight: 22,
     indent: 4,             /* characters per level (eza uses 4) */
@@ -438,7 +441,7 @@ const KEYS = [
   ['cp', 'copy the open note'],
   ['delete', 'delete to the system trash: click, then type a name'],
   ['sort', 'change how the tree is ordered'],
-  ['reveal', 'jump to the open note in the tree'],
+  ['reveal', 'jump to the open note in the tree and light it up as a pill'],
   ['collapse', 'fold every folder'],
   ['expand', 'unfold every folder'],
   ['help', 'open the guide: commands, shortcuts and what the colours mean'],
@@ -482,7 +485,7 @@ const HELP = [
         ['size', 'biggest first'],
         ['ext', 'grouped by file type'],
       ] },
-    { cmd: 'reveal', c: 0, forms: [['', 'jump to the note you have open']] },
+    { cmd: 'reveal', c: 0, forms: [['', 'jump to the note you have open. it lights up as a colour pill tied to that note, and stays on it (through scrolling and folding) until you run another command, press esc, click that note or open another one']] },
     { cmd: 'collapse', c: 1, forms: [['', 'fold every folder']] },
     { cmd: 'expand', c: 2, forms: [['', 'unfold every folder']] },
   ] },
@@ -893,13 +896,13 @@ class EzaSettingTab extends PluginSettingTab {
     let refreshing = false;       /* setValue on a picker must not count as the user picking */
     const shown = () => (s.palette.preset === 'theme' ? themeFills() : s.palette.colours);
 
-    const presets = { theme: 'default (follows your theme)' };
+    const presets = { theme: 'mish' };
     Object.keys(PALETTES).forEach((k) => { presets[k] = k; });
     presets.custom = 'custom';
 
     new Setting(containerEl)
       .setName('palette')
-      .setDesc('the six colours of the rainbow. they colour the prompt pills, the tree levels, the card border, the scrollbar and the explorer tab icon. pick a preset, then change any colour below. in light mode the text versions are darkened for you.')
+      .setDesc('the six colours of the rainbow. they colour the prompt pills, the tree levels, the card border, the scrollbar and the explorer tab icon. mish is the default: the pastel rainbow this plugin ships, and it follows the colours of your obsidian theme if the theme sets them. pick a preset, then change any colour below. in light mode the text versions are darkened for you.')
       .addDropdown((d) => {
         presetDrop = d;
         d.addOptions(presets)
@@ -917,7 +920,7 @@ class EzaSettingTab extends PluginSettingTab {
       })
       .addExtraButton((b) => b
         .setIcon('rotate-ccw')
-        .setTooltip('back to the theme colours')
+        .setTooltip('back to mish')
         .onClick(() => {
           s.palette.preset = 'theme';
           presetDrop.setValue('theme');
@@ -984,7 +987,7 @@ class EzaSettingTab extends PluginSettingTab {
       { depth: 'by depth', type: 'by file type', plain: 'plain' }, 'tree');
     drop('tree', 'activeStyle', 'open note marker', 'how the note you have open is marked in the tree.',
       { outline: 'outline', fill: 'filled pill', none: 'none' }, 'look');
-    tog('tree', 'autoReveal', 'follow the open note', 'when you open a note, unfold its folders and scroll to it (what the reveal command does).', 'look');
+    tog('tree', 'autoReveal', 'follow the open note', 'when you open a note, and when obsidian starts, unfold its folders, scroll to it and light it up as a pill (what the reveal command does).', 'look');
     slide('tree', 'fontSize', 'tree font size', 'the names and the lines. the prompt keeps its size.', 9, 20, 0.5, 'look', 'px');
     slide('tree', 'rowHeight', 'row height', 'space between rows.', 16, 40, 1, 'look', 'px');
     slide('tree', 'indent', 'indent width', 'characters per level. eza uses 4.', 3, 8, 1, 'look', ' ch');
@@ -1136,6 +1139,13 @@ module.exports = class MishEza extends Plugin {
     this.open = new Set(saved.open || []);
     this.sortKey = SORTS.includes(saved.sort) ? saved.sort : 'name';
 
+    /* 'follow the open note' used to be off by default. a data.json from before the
+       change has that stored as false, so once (and only once) it is switched on. */
+    if (!saved.v) this.settings.tree.autoReveal = true;
+
+    /* obsidian reports the open note before the tree exists, so the first reveal waits for it */
+    this.revealPending = true;
+
     this.addSettingTab(new EzaSettingTab(this.app, this));
     this.restyle();      /* the tab icon's gradient, before the first panel exists */
 
@@ -1146,11 +1156,8 @@ module.exports = class MishEza extends Plugin {
     this.registerEvent(this.app.workspace.on('layout-change', () => this.ensure()));
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.ensure()));
     this.registerEvent(this.app.workspace.on('file-open', () => {
-      if (this.settings.tree.autoReveal) {
-        try { this.cmdReveal('nearest'); } catch (e) { this.markActive(); }
-      } else {
-        this.markActive();
-      }
+      this.hideSticky();
+      this.followOpenNote('nearest');
     }));
     /* light <-> dark: custom colours have a darker text version in light mode */
     this.registerEvent(this.app.workspace.on('css-change', () => this.restyle()));
@@ -1193,6 +1200,7 @@ module.exports = class MishEza extends Plugin {
 
   onunload() {
     this.hidePill();
+    this.hideSticky();
     paintRainbow(DEFAULT_SETTINGS);      /* the shared gradient goes back to the theme's colours */
     unmountRainbow();
     window.clearTimeout(this.renderTimer);
@@ -1244,6 +1252,31 @@ module.exports = class MishEza extends Plugin {
     for (const root of [...this.roots]) {
       if (!root.isConnected) this.roots.delete(root);
     }
+
+    /* the tree was only just built (app start, or the explorer was rebuilt): catch up */
+    if (this.revealPending && this.roots.size) {
+      window.requestAnimationFrame(() => {
+        if (this.revealPending) this.followOpenNote('center');   /* once is enough */
+      });
+    }
+  }
+
+  /* 'follow the open note': unfold its folders, scroll to it and light it up with the
+     same pill the reveal command uses. when there is no tree yet it waits (revealPending)
+     and ensure() calls this again the moment one is built. */
+  followOpenNote(block = 'nearest') {
+    if (!this.settings.tree.autoReveal) {
+      this.revealPending = false;
+      this.markActive();
+      return;
+    }
+    if (!this.app.workspace.getActiveFile()) return;     /* nothing open: stay pending */
+    if (![...this.roots].some((root) => root.isConnected)) {
+      this.revealPending = true;
+      return;
+    }
+    this.revealPending = false;
+    try { this.cmdReveal(block, true); } catch (e) { this.markActive(); }
   }
 
   /* ── drawing ─────────────────────────────────────────────────────── */
@@ -1489,6 +1522,7 @@ module.exports = class MishEza extends Plugin {
       } else if (e.key === 'Escape') {
         input.value = '';
         at = -1;
+        this.hideSticky();
         this.say('');
         input.blur();
       }
@@ -1638,17 +1672,23 @@ module.exports = class MishEza extends Plugin {
     });
 
     tree.addEventListener('mouseleave', stop);
-    tree.addEventListener('click', stop);
+    tree.addEventListener('click', (e) => {
+      stop();
+      /* the reveal pill follows its note around, so only clicking that note itself puts it away */
+      const row = e.target.closest('.ez-row');
+      if (row && this.stickyPath && row.dataset.path === this.stickyPath) this.hideSticky();
+    });
     tree.addEventListener('contextmenu', stop);
     const scroller = tree.closest('.ez-scroll');
     if (scroller) scroller.addEventListener('scroll', stop, { passive: true });
   }
 
-  showPill(row) {
-    this.hidePill();
+  /* builds a pill for a row on <body> and returns it, or null when there is nothing to show.
+     force = the reveal command asked for it, so it shows even when the name fits */
+  buildPill(row, force) {
     const name = row.isConnected ? row.querySelector('.ez-name') : null;
-    if (!name || !name.lastChild) return;
-    if (!this.settings.revealPill.always && name.scrollWidth <= name.clientWidth + 1) return;   /* it all fits: nothing to reveal */
+    if (!name || !name.lastChild) return null;
+    if (!force && !this.settings.revealPill.always && name.scrollWidth <= name.clientWidth + 1) return null;   /* it all fits: nothing to reveal */
 
     const rect = name.getBoundingClientRect();
     const style = window.getComputedStyle(name);
@@ -1672,21 +1712,88 @@ module.exports = class MishEza extends Plugin {
 
     document.body.appendChild(wrap);
 
-    /* start 6px left of the name (that is the pill's own padding, so the text stays put),
-       and slide back in if it would run off the right edge of the window */
+    this.placePill(wrap, rect);
+    return wrap;
+  }
+
+  /* start 6px left of the name (that is the pill's own padding, so the text stays put),
+     and slide back in if it would run off the right edge of the window */
+  placePill(wrap, rect) {
     let left = rect.left - 6;
     const room = window.innerWidth - 8;
     if (left + wrap.offsetWidth > room) left = Math.max(8, room - wrap.offsetWidth);
     wrap.style.left = left + 'px';
     wrap.style.top = rect.top + 'px';
+  }
 
-    this.pill = wrap;
+  /* the hover pill: one at a time, gone as soon as the mouse moves on */
+  showPill(row) {
+    this.hidePill();
+    this.pill = this.buildPill(row, false);
   }
 
   hidePill() {
     if (this.pill) {
       this.pill.remove();
       this.pill = null;
+    }
+  }
+
+  /* the reveal command's pill: same look, but it is tied to the FILE, not to a spot on the
+     screen. it remembers the note's path and, every frame, goes to wherever that note's row
+     is right now: scrolling, folding, resizing the sidebar or the card re-centring all just
+     carry it along. it hides while the row is out of view (or its folder is folded) and comes
+     back with it. it stays until you run another command, press esc, open another note,
+     or click that note. it is its own pill, so hovering other rows never takes it away. */
+  stickPill(row) {
+    this.hideSticky();
+    const wrap = this.buildPill(row, true);
+    if (!wrap) return;
+    this.sticky = wrap;
+    this.stickyPath = row.dataset.path;
+
+    let at = row;                       /* the row we are glued to; looked up again when the tree redraws */
+    let lastTop = NaN;
+    let lastLeft = NaN;
+    const step = () => {
+      if (this.sticky !== wrap) return;
+      if (!at || !at.isConnected) {
+        at = null;
+        for (const root of this.roots) {
+          const found = [...root.__ez.tree.querySelectorAll('.ez-row')]
+            .find((r) => r.dataset.path === this.stickyPath);
+          if (found && found.offsetParent) { at = found; break; }
+        }
+      }
+
+      const name = at ? at.querySelector('.ez-name') : null;
+      let shown = false;
+      if (name) {
+        const rect = name.getBoundingClientRect();
+        const scroller = at.closest('.ez-scroll');
+        const box = scroller ? scroller.getBoundingClientRect() : null;
+        /* only while the whole row is inside the tree's own window: otherwise the pill would hang over the prompt */
+        shown = rect.width > 0 && (!box || (rect.top >= box.top - 1 && rect.bottom <= box.bottom + 1));
+        if (shown && (rect.top !== lastTop || rect.left !== lastLeft)) {
+          lastTop = rect.top;
+          lastLeft = rect.left;
+          wrap.style.height = rect.height + 'px';
+          wrap.style.lineHeight = rect.height + 'px';
+          this.placePill(wrap, rect);
+        }
+      }
+      wrap.style.visibility = shown ? '' : 'hidden';
+      this.stickyFrame = window.requestAnimationFrame(step);
+    };
+    this.stickyFrame = window.requestAnimationFrame(step);
+  }
+
+  hideSticky() {
+    window.cancelAnimationFrame(this.stickyFrame);
+    this.stickyPath = null;
+    if (this.sticky) {
+      this.sticky.remove();
+      this.sticky = null;
     }
   }
 
@@ -1745,6 +1852,7 @@ module.exports = class MishEza extends Plugin {
     }
 
     if (!text) return;
+    this.hideSticky();
     this.history.push(text);
 
     const [cmd, ...args] = tokenize(text);
@@ -2048,17 +2156,30 @@ module.exports = class MishEza extends Plugin {
     this.say('sorted by ' + key);
   }
 
-  cmdReveal(block = 'center') {
+  cmdReveal(block = 'center', pill = block === 'center') {
     const file = this.app.workspace.getActiveFile();
     if (!file) throw new Error('no note is open');
 
     this.openParents(file.path);
     this.renderAll();
+    let target = null;
     for (const root of this.roots) {
       const row = [...root.__ez.tree.querySelectorAll('.ez-row')]
         .find((r) => r.dataset.path === file.path);
-      if (row) row.scrollIntoView({ block });
+      if (!row) continue;
+      row.scrollIntoView({ block });
+      if (!target && row.offsetParent) target = row;     /* the panel you can actually see */
     }
+
+    /* the command and "follow the open note" both get the pill; it stays quiet only when
+       hover pills are switched off in the settings */
+    if (pill && target && this.settings.show.reveal !== false) this.pinPill(target);
+  }
+
+  /* the reveal command: the note it jumped to wears the same colour pill as a hovered name,
+     glued to that note (see stickPill) until you run something else, press esc or open another note */
+  pinPill(row) {
+    this.stickPill(row);
   }
 
   cmdExpand() {
@@ -2075,7 +2196,7 @@ module.exports = class MishEza extends Plugin {
   }
 
   async saveAll() {
-    await this.saveData({ settings: this.settings, open: [...this.open], sort: this.sortKey });
+    await this.saveData({ v: 2, settings: this.settings, open: [...this.open], sort: this.sortKey });
   }
 
   tick() {
