@@ -6,7 +6,7 @@
 
 [![release](https://img.shields.io/github/v/release/mishtiiikrishnaa/mish.eza?style=flat-square&color=ffa6c9&labelColor=1a1a1a)](https://github.com/mishtiiikrishnaa/mish.eza/releases/latest)
 [![licence](https://img.shields.io/github/license/mishtiiikrishnaa/mish.eza?style=flat-square&color=ffa6c9&labelColor=1a1a1a)](LICENSE)
-![obsidian](https://img.shields.io/badge/obsidian-1.5.0%2B-ffa6c9?style=flat-square&labelColor=1a1a1a)
+![obsidian](https://img.shields.io/badge/obsidian-1.15.0%2B-ffa6c9?style=flat-square&labelColor=1a1a1a)
 ![desktop only](https://img.shields.io/badge/desktop-only-ffa6c9?style=flat-square&labelColor=1a1a1a)
 ![network](https://img.shields.io/badge/network-none-ffa6c9?style=flat-square&labelColor=1a1a1a)
 ![system commands](https://img.shields.io/badge/system%20commands-none-ffa6c9?style=flat-square&labelColor=1a1a1a)
