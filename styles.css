@@ -128,6 +128,10 @@ body.theme-light {
 
 .ez-root {
   --ez-line: var(--vf-tree-line, var(--mz-tree-line));
+  /* tree guides: one neutral colour. the old per-depth colours at 55% opacity
+     turned yellow into mud. the names keep their rainbow. to get the coloured
+     guides back, set this to var(--c, var(--ez-line)) */
+  --ez-guide: color-mix(in srgb, var(--vf-fg, var(--mz-fg)) 55%, transparent);
   --ez-row: 22px;
 
   font-family: var(--vf-mono, "mish mono", ui-monospace, monospace), "mish icons", "Symbols Nerd Font Mono";
@@ -211,6 +215,13 @@ body.theme-light {
   padding: 12px 12px 2px;
   overflow-x: hidden;
   overflow-y: auto;
+}
+
+/* the tree runs under the shell line: fade the last 18px so a row is never
+   sliced in half by the border. short trees never reach the fade. */
+.workspace-leaf-content[data-type="file-explorer"].ez-on .ez-scroll {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
 }
 
 /* ═══ depth colours: same order as the prompt pills ═══
@@ -397,8 +408,8 @@ body.theme-light {
 /* one 4-char cell per depth, exactly like eza's "│   " / "├── " / "└── " */
 .ez-cell {
   position: relative;
-  flex: 0 0 var(--ez-indent, 4ch);   /* settings: indent width */
-  width: var(--ez-indent, 4ch);
+  flex: 0 0 var(--ez-indent, 3ch);   /* settings: indent width */
+  width: var(--ez-indent, 3ch);
 }
 
 /* │ */
@@ -409,7 +420,7 @@ body.theme-light {
   left: 0.5ch;
   top: 0;
   bottom: 0;
-  border-left: var(--ez-lw, 1px) var(--ez-ls, solid) var(--c, var(--ez-line));
+  border-left: var(--ez-lw, 1px) var(--ez-ls, solid) var(--ez-guide);
   opacity: var(--ez-lo, 0.55);
 }
 
@@ -420,7 +431,7 @@ body.theme-light {
   left: 0.5ch;
   top: 0;
   height: 50%;
-  border-left: var(--ez-lw, 1px) var(--ez-ls, solid) var(--c, var(--ez-line));
+  border-left: var(--ez-lw, 1px) var(--ez-ls, solid) var(--ez-guide);
   opacity: var(--ez-lo, 0.55);
 }
 
@@ -431,8 +442,8 @@ body.theme-light {
   position: absolute;
   left: 0.5ch;
   top: 50%;
-  width: calc(var(--ez-indent, 4ch) - 1ch);
-  border-top: var(--ez-lw, 1px) var(--ez-ls, solid) var(--c, var(--ez-line));
+  width: calc(var(--ez-indent, 3ch) - 1ch);
+  border-top: var(--ez-lw, 1px) var(--ez-ls, solid) var(--ez-guide);
   opacity: var(--ez-lo, 0.55);
 }
 
@@ -441,17 +452,24 @@ body.theme-light {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  padding-right: 6px;
-  border-radius: 4px;
+  /* the same shape as a prompt pill: round cap on the left, arrow tip on the right.
+     it starts 6px before the text (the margin and padding cancel out, so the text
+     doesn't move), which is only visible when the row is hovered or is the open note */
+  margin-left: -6px;
+  padding: 0 6px;
+  border-radius: 999px 0 0 999px;
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 0 100%);
   color: var(--c, var(--vf-fg, var(--mz-fg)));
 }
 
 .ez-dir { font-weight: 700; }
 
 .ez-row:hover .ez-name { background: var(--mz-hover); }
+/* the open note: a tinted pill in the row's own colour, same shape as the prompt.
+   (a css outline is always a rectangle and would be cut off by the arrow, so the
+   marker is a tint instead) */
 .ez-row.is-active .ez-name {
-  outline: 1px solid var(--c, var(--vf-pink, var(--mz-pink)));
-  outline-offset: -1px;
+  background: color-mix(in srgb, var(--c, var(--vf-pink, var(--mz-pink))) 22%, transparent);
 }
 
 /* fold marker column: + collapsed, - expanded, blank for files */
@@ -503,7 +521,7 @@ body.theme-light {
   background: var(--f, var(--vf-fg, var(--mz-fg)));
   color: var(--vf-black, var(--mz-ink));
 }
-.ez-act-none .ez-row.is-active .ez-name { outline: none; }
+.ez-act-none .ez-row.is-active .ez-name { background: none; }
 
 /* wide card: the whole sidebar instead of the prompt's width */
 .ez-full .ez-card { width: 100%; }

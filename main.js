@@ -165,10 +165,10 @@ const DEFAULT_SETTINGS = {
     reverse: false,        /* flip the sort order */
     extensions: 'all',     /* all | md (hide .md) | none (hide every extension) */
     activeStyle: 'outline',/* outline | fill | none: how the open note is marked */
-    autoReveal: true,      /* follow the open note: unfold, scroll, light up the pill */
+    autoReveal: true,      /* follow the open note: unfold its folders and scroll to it (no pill) */
     fontSize: 12,
     rowHeight: 22,
-    indent: 4,             /* characters per level (eza uses 4) */
+    indent: 3,             /* characters per level (eza uses 4, but a narrow card can't afford it) */
     lineStyle: 'solid',    /* solid | dashed | dotted */
     lineWidth: 1,
     lineOpacity: 55,       /* percent */
@@ -187,7 +187,7 @@ const DEFAULT_SETTINGS = {
   },
 
   /* the hover reveal pill */
-  revealPill: { always: false, delay: 140 },
+  revealPill: { always: false, delay: 140, hold: 2500 },
 };
 
 /* a data.json from an older version, or one edited by hand, must never break the panel */
@@ -238,7 +238,7 @@ const layoutVars = (cfg) => {
   const v = {
     '--ez-fs': num(t.fontSize, 9, 20, 12) + 'px',
     '--ez-row': num(t.rowHeight, 16, 40, 22) + 'px',
-    '--ez-indent': num(t.indent, 3, 8, 4) + 'ch',
+    '--ez-indent': num(t.indent, 3, 8, 3) + 'ch',
     '--ez-lw': num(t.lineWidth, 1, 3, 1) + 'px',
     '--ez-ls': ['solid', 'dashed', 'dotted'].includes(t.lineStyle) ? t.lineStyle : 'solid',
     '--ez-lo': String(num(t.lineOpacity, 5, 100, 55) / 100),
@@ -485,7 +485,7 @@ const KEYS = [
   ['cp', 'copy the open note'],
   ['delete', 'delete to the system trash: click, then type a name'],
   ['sort', 'change how the tree is ordered'],
-  ['reveal', 'jump to the open note in the tree and light it up as a pill'],
+  ['reveal', 'jump to the open note in the tree and flash it as a pill'],
   ['collapse', 'fold every folder'],
   ['expand', 'unfold every folder'],
   ['help', 'open the guide: commands, shortcuts and what the colours mean'],
@@ -529,7 +529,7 @@ const HELP = [
         ['size', 'biggest first'],
         ['ext', 'grouped by file type'],
       ] },
-    { cmd: 'reveal', c: 0, forms: [['', 'jump to the note you have open. it lights up as a colour pill tied to that note, and stays on it (through scrolling and folding) until you run another command, press esc, click that note or open another one']] },
+    { cmd: 'reveal', c: 0, forms: [['', 'jump to the note you have open. it flashes as a colour pill tied to that note (through scrolling and folding) for a couple of seconds, or until you run another command, press esc, click that note or open another one']] },
     { cmd: 'collapse', c: 1, forms: [['', 'fold every folder']] },
     { cmd: 'expand', c: 2, forms: [['', 'unfold every folder']] },
   ] },
@@ -1043,11 +1043,11 @@ class EzaSettingTab extends PluginSettingTab {
     drop('tree', 'nameColour', 'name colours', "by depth = one colour per level, like the prompt. by file type = folders blue, notes green, images lilac, pdfs pink, canvases peach, the rest yellow. plain = your theme's text colour.",
       { depth: 'by depth', type: 'by file type', plain: 'plain' }, 'tree');
     drop('tree', 'activeStyle', 'open note marker', 'how the note you have open is marked in the tree.',
-      { outline: 'outline', fill: 'filled pill', none: 'none' }, 'look');
-    tog('tree', 'autoReveal', 'follow the open note', 'when you open a note, and when obsidian starts, unfold its folders, scroll to it and light it up as a pill (what the reveal command does).', 'look');
+      { outline: 'tinted pill', fill: 'solid pill', none: 'none' }, 'look');
+    tog('tree', 'autoReveal', 'follow the open note', 'when you open a note, and when obsidian starts, unfold its folders and scroll to it. the note is marked in the tree by the open note marker above.', 'look');
     slide('tree', 'fontSize', 'tree font size', 'the names and the lines. the prompt keeps its size.', 9, 20, 0.5, 'look', 'px');
     slide('tree', 'rowHeight', 'row height', 'space between rows.', 16, 40, 1, 'look', 'px');
-    slide('tree', 'indent', 'indent width', 'characters per level. eza uses 4.', 3, 8, 1, 'look', ' ch');
+    slide('tree', 'indent', 'indent width', 'characters per level. eza uses 4; 3 leaves deep names more room.', 3, 8, 1, 'look', ' ch');
     drop('tree', 'lineStyle', 'line style', 'the ├── └── │ lines.', { solid: 'solid', dashed: 'dashed', dotted: 'dotted' }, 'look');
     slide('tree', 'lineWidth', 'line thickness', '', 1, 3, 1, 'look', 'px');
     slide('tree', 'lineOpacity', 'line strength', 'how strong the lines are, in percent.', 5, 100, 5, 'look', '%');
@@ -1057,6 +1057,7 @@ class EzaSettingTab extends PluginSettingTab {
     flag('show', 'reveal', 'reveal full names on hover', 'hover a name that is cut off and a colour pill, like the prompt ones, shows the whole thing.',
       () => plugin.hidePill());
     tog('revealPill', 'always', 'also on names that fit', 'show the pill on every name you hover, not only the cut-off ones.', 'look');
+    slide('revealPill', 'hold', 'reveal command hold', 'how long the pill from the reveal command stays on the note before it goes away. 0 keeps it until esc.', 0, 10000, 250, 'look', ' ms');
     slide('revealPill', 'delay', 'delay', 'how long the mouse rests on a name before the pill appears.', 0, 600, 20, 'look', ' ms');
 
     /* ── card and layout ── */
@@ -1319,8 +1320,9 @@ module.exports = class MishEza extends Plugin {
     }
   }
 
-  /* 'follow the open note': unfold its folders, scroll to it and light it up with the
-     same pill the reveal command uses. when there is no tree yet it waits (revealPending)
+  /* 'follow the open note': unfold its folders and scroll to it. the note is marked in the
+     tree itself (the 'open note marker' setting); it never gets the floating pill, that
+     belongs to the reveal command alone. when there is no tree yet it waits (revealPending)
      and ensure() calls this again the moment one is built. */
   followOpenNote(block = 'nearest') {
     if (!this.settings.tree.autoReveal) {
@@ -1334,7 +1336,7 @@ module.exports = class MishEza extends Plugin {
       return;
     }
     this.revealPending = false;
-    try { this.cmdReveal(block, true); } catch (e) { this.markActive(); }
+    try { this.cmdReveal(block, false); } catch (e) { this.markActive(); }
   }
 
   /* ── drawing ─────────────────────────────────────────────────────── */
@@ -1774,10 +1776,10 @@ module.exports = class MishEza extends Plugin {
     return wrap;
   }
 
-  /* start 6px left of the name (that is the pill's own padding, so the text stays put),
+  /* start at the name's left edge (the name box already begins 6px before its text, which is the pill's own padding, so the text stays put),
      and slide back in if it would run off the right edge of the window */
   placePill(wrap, rect) {
-    let left = rect.left - 6;
+    let left = rect.left;
     const room = window.innerWidth - 8;
     if (left + wrap.offsetWidth > room) left = Math.max(8, room - wrap.offsetWidth);
     wrap.style.left = left + 'px';
@@ -1847,6 +1849,7 @@ module.exports = class MishEza extends Plugin {
   }
 
   hideSticky() {
+    window.clearTimeout(this.stickyTimer);
     window.cancelAnimationFrame(this.stickyFrame);
     this.stickyPath = null;
     if (this.sticky) {
@@ -2238,6 +2241,10 @@ module.exports = class MishEza extends Plugin {
      glued to that note (see stickPill) until you run something else, press esc or open another note */
   pinPill(row) {
     this.stickPill(row);
+    const hold = num(this.settings.revealPill.hold, 0, 10000, 2500);
+    if (hold > 0 && this.sticky) {
+      this.stickyTimer = window.setTimeout(() => this.hideSticky(), hold);
+    }
   }
 
   cmdExpand() {
