@@ -138,7 +138,7 @@ body.theme-light {
   text-align: left;
   user-select: none;
   display: flex;                 /* margin:auto on the card centres it both ways */
-  padding: 10px;
+  padding: var(--ez-pad, 10px);   /* settings: outer margin */
   background: transparent;
   min-width: 0;
 }
@@ -162,10 +162,10 @@ body.theme-light {
   min-width: min(100%, 28ch);    /* floor for when most of the prompt pills are off */
   max-width: 100%;
   max-height: 100%;
-  margin: auto;
+  margin: var(--ez-mt, auto) auto auto var(--ez-ml, auto);   /* settings: pin to the top / left. default = centred */
   background: transparent;
   border: 0;                     /* the rainbow ring below is the border */
-  border-radius: 10px;
+  border-radius: var(--ez-radius, 10px);
   overflow: hidden;
   text-align: left;
 }
@@ -177,17 +177,17 @@ body.theme-light {
   position: absolute;
   inset: 0;
   z-index: 6;
-  padding: 1px;
+  padding: var(--ez-ring-w, 1px);     /* settings: thickness (0 = no border) */
   border-radius: inherit;
-  background: linear-gradient(
-    135deg,
+  background: var(--ez-ring-bg, linear-gradient(     /* settings can swap the rainbow for one colour */
+    var(--ez-angle, 135deg),
     var(--vf-pink-hi, var(--mz-f-pink-hi)),
     var(--vf-peach, var(--mz-f-peach)),
     var(--vf-yellow, var(--mz-f-yellow)),
     var(--vf-green, var(--mz-f-green)),
     var(--vf-blue, var(--mz-f-blue)),
     var(--vf-lilac, var(--mz-f-lilac))
-  );
+  ));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -215,12 +215,12 @@ body.theme-light {
 
 /* ═══ depth colours: same order as the prompt pills ═══
    pink → peach → yellow → green → blue → lilac, then round again */
-.ez-c0 { --c: var(--vf-pink-hi, var(--mz-pink-hi)); }
-.ez-c1 { --c: var(--vf-peach, var(--mz-peach)); }
-.ez-c2 { --c: var(--vf-yellow, var(--mz-yellow)); }
-.ez-c3 { --c: var(--vf-green, var(--mz-green)); }
-.ez-c4 { --c: var(--vf-blue, var(--mz-blue)); }
-.ez-c5 { --c: var(--vf-lilac, var(--mz-lilac)); }
+.ez-c0 { --c: var(--vf-pink-hi, var(--mz-pink-hi)); --f: var(--vf-pink-hi, var(--mz-f-pink-hi)); }
+.ez-c1 { --c: var(--vf-peach, var(--mz-peach)); --f: var(--vf-peach, var(--mz-f-peach)); }
+.ez-c2 { --c: var(--vf-yellow, var(--mz-yellow)); --f: var(--vf-yellow, var(--mz-f-yellow)); }
+.ez-c3 { --c: var(--vf-green, var(--mz-green)); --f: var(--vf-green, var(--mz-f-green)); }
+.ez-c4 { --c: var(--vf-blue, var(--mz-blue)); --f: var(--vf-blue, var(--mz-f-blue)); }
+.ez-c5 { --c: var(--vf-lilac, var(--mz-lilac)); --f: var(--vf-lilac, var(--mz-f-lilac)); }
 
 /* eza mode: hide the native pills and list; the tree scrolls, the shell is
    pinned flush to the bottom (no padding between it and the vault switcher) */
@@ -332,6 +332,32 @@ body.theme-light {
 .ez-ch2 { background: var(--vf-green, var(--mz-f-green)); }
 .ez-ch3 { background: var(--vf-blue, var(--mz-f-blue)); }
 
+/* pill shapes (settings): arrow is the default above. round and flat drop the arrow
+   tips and the little >>> bridge, and put a gap between the pills instead. */
+.ez-shape-round .ez-seg,
+.ez-shape-round .ez-seg:first-child,
+.ez-shape-round .ez-seg:last-child,
+.ez-shape-round .ez-seg:first-child:last-child,
+.ez-shape-flat .ez-seg,
+.ez-shape-flat .ez-seg:first-child,
+.ez-shape-flat .ez-seg:last-child,
+.ez-shape-flat .ez-seg:first-child:last-child {
+  clip-path: none;
+  padding: 0 11px;
+  margin-left: 0;
+}
+.ez-shape-round .ez-seg,
+.ez-shape-round .ez-seg:first-child,
+.ez-shape-round .ez-seg:last-child,
+.ez-shape-round .ez-seg:first-child:last-child { border-radius: 11px; }
+.ez-shape-flat .ez-seg,
+.ez-shape-flat .ez-seg:first-child,
+.ez-shape-flat .ez-seg:last-child,
+.ez-shape-flat .ez-seg:first-child:last-child { border-radius: 0; }
+.ez-shape-round .ez-seg + .ez-seg { margin-left: 4px; }
+.ez-shape-round .ez-ch,
+.ez-shape-flat .ez-ch { display: none; }
+
 /* — the command — */
 .ez-cmd {
   margin: 6px 0 2px;
@@ -348,7 +374,7 @@ body.theme-light {
 .ez-dot {
   height: var(--ez-row);
   line-height: var(--ez-row);
-  font-size: 12px;
+  font-size: var(--ez-fs, 12px);
   color: var(--vf-cyan, var(--mz-cyan));
 }
 
@@ -363,7 +389,7 @@ body.theme-light {
   align-items: stretch;
   height: var(--ez-row);
   line-height: var(--ez-row);
-  font-size: 12px;
+  font-size: var(--ez-fs, 12px);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -371,8 +397,8 @@ body.theme-light {
 /* one 4-char cell per depth, exactly like eza's "│   " / "├── " / "└── " */
 .ez-cell {
   position: relative;
-  flex: 0 0 4ch;
-  width: 4ch;
+  flex: 0 0 var(--ez-indent, 4ch);   /* settings: indent width */
+  width: var(--ez-indent, 4ch);
 }
 
 /* │ */
@@ -383,8 +409,8 @@ body.theme-light {
   left: 0.5ch;
   top: 0;
   bottom: 0;
-  border-left: 1px solid var(--c, var(--ez-line));
-  opacity: 0.55;
+  border-left: var(--ez-lw, 1px) var(--ez-ls, solid) var(--c, var(--ez-line));
+  opacity: var(--ez-lo, 0.55);
 }
 
 /* └ (only the top half of the bar) */
@@ -394,8 +420,8 @@ body.theme-light {
   left: 0.5ch;
   top: 0;
   height: 50%;
-  border-left: 1px solid var(--c, var(--ez-line));
-  opacity: 0.55;
+  border-left: var(--ez-lw, 1px) var(--ez-ls, solid) var(--c, var(--ez-line));
+  opacity: var(--ez-lo, 0.55);
 }
 
 /* ── */
@@ -405,9 +431,9 @@ body.theme-light {
   position: absolute;
   left: 0.5ch;
   top: 50%;
-  width: 3ch;
-  border-top: 1px solid var(--c, var(--ez-line));
-  opacity: 0.55;
+  width: calc(var(--ez-indent, 4ch) - 1ch);
+  border-top: var(--ez-lw, 1px) var(--ez-ls, solid) var(--c, var(--ez-line));
+  opacity: var(--ez-lo, 0.55);
 }
 
 .ez-name {
@@ -462,12 +488,22 @@ body.theme-light {
 
 .ez-pill-fold { display: inline-block; width: 2ch; }
 
-.ez-pill.ez-c0 { background: var(--vf-pink-hi, var(--mz-f-pink-hi)); }
-.ez-pill.ez-c1 { background: var(--vf-peach, var(--mz-f-peach)); }
-.ez-pill.ez-c2 { background: var(--vf-yellow, var(--mz-f-yellow)); }
-.ez-pill.ez-c3 { background: var(--vf-green, var(--mz-f-green)); }
-.ez-pill.ez-c4 { background: var(--vf-blue, var(--mz-f-blue)); }
-.ez-pill.ez-c5 { background: var(--vf-lilac, var(--mz-f-lilac)); }
+.ez-pill { background: var(--f, var(--vf-fg, var(--mz-fg))); }   /* --f comes from the .ez-cN class */
+
+/* pill shapes follow the prompt's: arrow is the default above */
+.ez-pill-wrap.ez-shape-round .ez-pill { clip-path: none; border-radius: 999px; padding: 0 12px 0 6px; }
+.ez-pill-wrap.ez-shape-flat  .ez-pill { clip-path: none; border-radius: 0;     padding: 0 10px 0 6px; }
+
+/* the open note, when the setting isn't the default outline */
+.ez-act-fill .ez-row.is-active .ez-name {
+  outline: none;
+  background: var(--f, var(--vf-fg, var(--mz-fg)));
+  color: var(--vf-black, var(--mz-ink));
+}
+.ez-act-none .ez-row.is-active .ez-name { outline: none; }
+
+/* wide card: the whole sidebar instead of the prompt's width */
+.ez-full .ez-card { width: 100%; }
 
 @keyframes ez-pill-in {
   from { opacity: 0; transform: translateX(-4px); }

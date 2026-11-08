@@ -14,6 +14,8 @@
    - the prompt grows a git branch when the vault is a git repository
    - names are cut off with an ellipsis (the card never resizes). hover one and it
      grows into a prompt-style colour pill with the whole name, in its depth colour
+   - nearly everything is a setting: the six rainbow colours (with presets), pill
+     shape, clock, tree colours / lines / indent / sizes, the border, card position
    - everything (prompt, tree and the shell line) sits in one bordered card,
      the same box mish.fastfetch draws: it hugs its content and centres itself
    the old explorer is only hidden; "toggle native file explorer" brings it back.
@@ -38,6 +40,61 @@ const el = (tag, cls, text) => {
 };
 
 
+/* ── the rainbow ─────────────────────────────────────────────────────────
+   six colours, in this order everywhere: the prompt pills, the tree depths, the
+   card border, the scrollbar and the explorer tab icon all read from them.
+   a slot is a few css variables: the theme's own (vf), the fill this plugin
+   ships (f: pills, border, scrollbar) and the text version (t: tree names, lines;
+   darker in light mode, `dark` = how much, copied from styles.css). */
+const SLOTS = [
+  { name: 'pink',   vf: '--vf-pink-hi', f: '--mz-f-pink-hi', t: '--mz-pink-hi', dark: 40, used: 'user pill, first tree level, where the border starts' },
+  { name: 'peach',  vf: '--vf-peach',   f: '--mz-f-peach',   t: '--mz-peach',   dark: 42, used: 'vault pill, second tree level' },
+  { name: 'yellow', vf: '--vf-yellow',  f: '--mz-f-yellow',  t: '--mz-yellow',  dark: 50, used: 'git pill, third tree level, existing files in the prompt' },
+  { name: 'green',  vf: '--vf-green',   f: '--mz-f-green',   t: '--mz-green',   dark: 48, used: 'commands and the prompt arrow, fourth tree level' },
+  { name: 'blue',   vf: '--vf-blue',    f: '--mz-f-blue',    t: '--mz-blue',    dark: 40, used: 'existing folders in the prompt, fifth tree level' },
+  { name: 'lilac',  vf: '--vf-lilac',   f: '--mz-f-lilac',   t: '--mz-lilac',   dark: 38, used: 'clock pill, sixth tree level, where the border ends' },
+];
+
+/* what the plugin draws with when "follows your theme" is picked (the sorbet palette) */
+const DARK_FILLS  = ['#ffa6c9', '#ffd6a6', '#fff1a8', '#c9ffa6', '#a6c9ff', '#c9b0ff'];
+const LIGHT_FILLS = ['#ff8fb8', '#ffb27a', '#ffd54f', '#8ee07f', '#82b4ff', '#b79bff'];
+
+const PALETTES = {
+  catppuccin: ['#f5c2e7', '#fab387', '#f9e2af', '#a6e3a1', '#89b4fa', '#cba6f7'],
+  dracula:    ['#ff79c6', '#ffb86c', '#f1fa8c', '#50fa7b', '#8be9fd', '#bd93f9'],
+  nord:       ['#bf616a', '#d08770', '#ebcb8b', '#a3be8c', '#81a1c1', '#b48ead'],
+  gruvbox:    ['#fb4934', '#fe8019', '#fabd2f', '#b8bb26', '#83a598', '#d3869b'],
+  ocean:      ['#c4f1f9', '#7fe0e8', '#6fd3c2', '#7bc6f0', '#82a8ff', '#a98bff'],
+  sunset:     ['#ff8fa3', '#ff9e6b', '#ffc15e', '#ff7eb6', '#e08bff', '#b794ff'],
+  forest:     ['#e6c9a8', '#d9b26f', '#e3e08a', '#9fd58a', '#6fc2a0', '#7fa8c9'],
+  greyscale:  ['#f5f5f5', '#dcdcdc', '#c4c4c4', '#a8a8a8', '#8c8c8c', '#707070'],
+};
+
+const HEX = /^#[0-9a-f]{6}$/i;
+const SHAPES = ['arrow', 'round', 'flat'];
+const ACTIVES = ['outline', 'fill', 'none'];
+
+const lightTheme = () => document.body.classList.contains('theme-light');
+const themeFills = () => (lightTheme() ? LIGHT_FILLS : DARK_FILLS).slice();
+
+const num = (v, lo, hi, dflt) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : dflt;
+};
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const isPlain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+
+/* defaults underneath, what was saved on top; nested groups merge key by key,
+   so a setting added in an update never goes missing from an old data.json */
+const deepMerge = (base, over) => {
+  const out = Object.assign({}, base);
+  if (!isPlain(over)) return out;
+  for (const k of Object.keys(over)) {
+    out[k] = isPlain(base[k]) && isPlain(over[k]) ? deepMerge(base[k], over[k]) : over[k];
+  }
+  return out;
+};
+
 const DEFAULT_SETTINGS = {
   username: '',          /* empty = auto-detect */
   font: 'bundled',       /* bundled | obsidian | system | family:<name> | custom */
@@ -45,7 +102,146 @@ const DEFAULT_SETTINGS = {
   groupDirsFirst: true,  /* like `eza --group-directories-first` */
   confirmRm: true,       /* rm / delete ask y or n in the prompt first */
   pills: { user: true, vault: true, git: true, time: true },
-  show: { command: true, keys: true, reveal: true },
+  show: { command: true, keys: true, reveal: true, shell: true },
+
+  /* the rainbow: preset = theme | custom | one of PALETTES. colours are the six fills. */
+  palette: { preset: 'theme', colours: DARK_FILLS.slice() },
+  inkColour: '',         /* text on the pills. empty = automatic (dark ink) */
+
+  /* the prompt */
+  pillShape: 'arrow',    /* arrow | round | flat */
+  vaultLabel: '',        /* empty = ~/<vault name> */
+  clock: { hour12: false, seconds: false },
+
+  /* the tree */
+  tree: {
+    nameColour: 'depth',   /* depth | type | plain */
+    reverse: false,        /* flip the sort order */
+    extensions: 'all',     /* all | md (hide .md) | none (hide every extension) */
+    activeStyle: 'outline',/* outline | fill | none: how the open note is marked */
+    autoReveal: false,     /* follow the open note */
+    fontSize: 12,
+    rowHeight: 22,
+    indent: 4,             /* characters per level (eza uses 4) */
+    lineStyle: 'solid',    /* solid | dashed | dotted */
+    lineWidth: 1,
+    lineOpacity: 55,       /* percent */
+  },
+
+  /* the card */
+  card: {
+    width: 'fit',          /* fit (the prompt decides) | full (the whole sidebar) */
+    hAlign: 'centre',      /* centre | left */
+    vAlign: 'centre',      /* centre | top */
+    ring: 'rainbow',       /* rainbow | accent | subtle | none */
+    ringWidth: 1,
+    angle: 135,            /* degrees, for the rainbow border */
+    radius: 10,
+    pad: 10,
+  },
+
+  /* the hover reveal pill */
+  revealPill: { always: false, delay: 140 },
+};
+
+/* a data.json from an older version, or one edited by hand, must never break the panel */
+const sanitise = (cfg) => {
+  const p = cfg.palette;
+  if (p.preset !== 'theme' && p.preset !== 'custom' && !PALETTES[p.preset]) p.preset = 'theme';
+  if (!Array.isArray(p.colours) || p.colours.length !== 6 || !p.colours.every((c) => HEX.test(c))) {
+    p.colours = DARK_FILLS.slice();
+  }
+  return cfg;
+};
+
+/* the six colours to draw with, or null when the theme decides */
+const customColours = (cfg) => {
+  const p = cfg.palette;
+  return p.preset !== 'theme' && Array.isArray(p.colours) && p.colours.length === 6 && p.colours.every((c) => HEX.test(c))
+    ? p.colours : null;
+};
+
+/* css variables for the colours. a custom palette sets the plugin's own fills and text
+   colours, and tells the theme's --vf-* to step aside (`initial` = "not set", so the
+   fallbacks win). in light mode the text colour is the fill darkened, the same way
+   styles.css does it for the default palette. */
+const paletteVars = (cfg) => {
+  const v = {};
+  const colours = customColours(cfg);
+  if (colours) {
+    const light = lightTheme();
+    SLOTS.forEach((s, i) => {
+      v[s.vf] = 'initial';
+      v[s.f] = colours[i];
+      v[s.t] = light ? 'color-mix(in oklab, ' + colours[i] + ', black ' + s.dark + '%)' : colours[i];
+    });
+  }
+  if (HEX.test(cfg.inkColour)) {
+    v['--vf-black'] = 'initial';
+    v['--mz-ink'] = cfg.inkColour;
+  }
+  return v;
+};
+
+/* css variables for sizes, lines and the card. every one has the old fixed value as its
+   fallback in styles.css, so the defaults look exactly as before. */
+const layoutVars = (cfg) => {
+  const t = cfg.tree;
+  const c = cfg.card;
+  const v = {
+    '--ez-fs': num(t.fontSize, 9, 20, 12) + 'px',
+    '--ez-row': num(t.rowHeight, 16, 40, 22) + 'px',
+    '--ez-indent': num(t.indent, 3, 8, 4) + 'ch',
+    '--ez-lw': num(t.lineWidth, 1, 3, 1) + 'px',
+    '--ez-ls': ['solid', 'dashed', 'dotted'].includes(t.lineStyle) ? t.lineStyle : 'solid',
+    '--ez-lo': String(num(t.lineOpacity, 5, 100, 55) / 100),
+    '--ez-radius': num(c.radius, 0, 28, 10) + 'px',
+    '--ez-pad': num(c.pad, 0, 32, 10) + 'px',
+    '--ez-angle': num(c.angle, 0, 360, 135) + 'deg',
+    '--ez-mt': c.vAlign === 'top' ? '0' : 'auto',
+    '--ez-ml': c.hAlign === 'left' ? '0' : 'auto',
+  };
+  const w = num(c.ringWidth, 1, 4, 1) + 'px';
+  if (c.ring === 'none') {
+    v['--ez-ring-w'] = '0px';
+  } else if (c.ring === 'accent') {
+    v['--ez-ring-w'] = w;
+    v['--ez-ring-bg'] = 'var(--interactive-accent)';
+  } else if (c.ring === 'subtle') {
+    v['--ez-ring-w'] = w;
+    v['--ez-ring-bg'] = 'var(--background-modifier-border)';
+  } else {
+    v['--ez-ring-w'] = w;                 /* rainbow: the gradient in styles.css */
+  }
+  return v;
+};
+
+/* sets the variables, and clears ones set last time that are no longer wanted */
+const applyVars = (node, vars) => {
+  for (const name of node.__ezVars || []) {
+    if (!(name in vars)) node.style.removeProperty(name);
+  }
+  for (const name of Object.keys(vars)) node.style.setProperty(name, vars[name]);
+  node.__ezVars = Object.keys(vars);
+};
+
+/* "name 1.md" → "name 1" when the setting hides extensions */
+const labelFor = (node, mode) => {
+  if (!(node instanceof TFile) || !node.extension || mode === 'all') return node.name;
+  if (mode === 'none' || node.extension.toLowerCase() === 'md') return node.basename;
+  return node.name;
+};
+
+/* "name colours: by file type" */
+const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'avif'];
+const kindColour = (node) => {
+  if (node instanceof TFolder) return 4;                                   /* blue */
+  const ext = (node.extension || '').toLowerCase();
+  if (ext === 'md') return 3;                                              /* green */
+  if (IMAGE_EXT.includes(ext)) return 5;                                   /* lilac */
+  if (ext === 'pdf') return 0;                                             /* pink */
+  if (ext === 'canvas' || ext === 'base') return 1;                        /* peach */
+  return 2;                                                                /* yellow */
 };
 
 /* who you are, as the operating system reports it */
@@ -390,24 +586,27 @@ const buildHelp = (close) => {
 const byName = (a, b) =>
   a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
 
-const sorted = (folder, key, groupDirs = true) => [...folder.children].sort((a, b) => {
-  const af = a instanceof TFolder;
-  const bf = b instanceof TFolder;
-  if (groupDirs && af !== bf) return af ? -1 : 1;
+const sorted = (folder, key, groupDirs = true, reverse = false) => {
+  const flip = reverse ? -1 : 1;   /* reverse flips the order inside a group, never folders-before-files */
+  return [...folder.children].sort((a, b) => {
+    const af = a instanceof TFolder;
+    const bf = b instanceof TFolder;
+    if (groupDirs && af !== bf) return af ? -1 : 1;
 
-  if (!af && !bf) {
-    const sa = a.stat || {};
-    const sb = b.stat || {};
-    if (key === 'mtime' && sb.mtime !== sa.mtime) return sb.mtime - sa.mtime;   /* newest first */
-    if (key === 'ctime' && sb.ctime !== sa.ctime) return sb.ctime - sa.ctime;
-    if (key === 'size' && sb.size !== sa.size) return sb.size - sa.size;        /* biggest first */
-    if (key === 'ext') {
-      const c = (a.extension || '').localeCompare(b.extension || '');
-      if (c) return c;
+    if (!af && !bf) {
+      const sa = a.stat || {};
+      const sb = b.stat || {};
+      if (key === 'mtime' && sb.mtime !== sa.mtime) return flip * (sb.mtime - sa.mtime);   /* newest first */
+      if (key === 'ctime' && sb.ctime !== sa.ctime) return flip * (sb.ctime - sa.ctime);
+      if (key === 'size' && sb.size !== sa.size) return flip * (sb.size - sa.size);        /* biggest first */
+      if (key === 'ext') {
+        const c = (a.extension || '').localeCompare(b.extension || '');
+        if (c) return flip * c;
+      }
     }
-  }
-  return byName(a, b);
-});
+    return flip * byName(a, b);
+  });
+};
 
 /* how many things (files and folders) are inside a folder, all the way down */
 const countInside = (folder) => folder.children.reduce(
@@ -542,6 +741,22 @@ const mountRainbow = () => {
   svg.dataset.users = String(Number(svg.dataset.users || 0) + 1);
 };
 
+/* the explorer's tab icon uses one gradient (shared with mish.fastfetch). point its six
+   stops at the palette, or back at the theme's variables when the palette is the default. */
+const paintRainbow = (cfg) => {
+  const svg = document.getElementById(RAINBOW_ID);
+  if (!svg) return;
+  const colours = customColours(cfg);
+  const light = lightTheme();
+  svg.querySelectorAll('stop').forEach((stop, i) => {
+    const s = SLOTS[i];
+    if (!s) return;
+    stop.style.stopColor = colours
+      ? (light ? 'color-mix(in oklab, ' + colours[i] + ', black ' + s.dark + '%)' : colours[i])
+      : 'var(' + s.vf + ', var(' + s.t + ', ' + DARK_FILLS[i] + '))';
+  });
+};
+
 const unmountRainbow = () => {
   const svg = document.getElementById(RAINBOW_ID);
   if (!svg) return;
@@ -573,6 +788,67 @@ class EzaSettingTab extends PluginSettingTab {
           if (after) await after(value);
         }));
 
+    /* the builders below write into the settings, repaint, and save a moment later.
+       kind: 'look' = styles only (fast), 'bar' = redraw the prompt, 'tree' = redraw the tree too. */
+    const apply = (kind) => {
+      if (kind === 'bar') {
+        plugin.applySettings();
+      } else {
+        plugin.restyle();
+        if (kind === 'tree') plugin.renderAll();
+      }
+      plugin.persist();
+    };
+    const holder = (group) => (group ? s[group] : s);
+    const dflt = (group, key) => (group ? DEFAULT_SETTINGS[group] : DEFAULT_SETTINGS)[key];
+
+    const drop = (group, key, name, desc, options, kind) => new Setting(containerEl)
+      .setName(name)
+      .setDesc(desc || '')
+      .addDropdown((d) => d
+        .addOptions(options)
+        .setValue(String(holder(group)[key]))
+        .onChange((value) => {
+          holder(group)[key] = value;
+          apply(kind);
+        }));
+
+    const tog = (group, key, name, desc, kind) => new Setting(containerEl)
+      .setName(name)
+      .setDesc(desc || '')
+      .addToggle((t) => t
+        .setValue(Boolean(holder(group)[key]))
+        .onChange((value) => {
+          holder(group)[key] = value;
+          apply(kind);
+        }));
+
+    /* a slider with a little reset arrow that puts the default back */
+    const slide = (group, key, name, desc, lo, hi, step, kind, unit) => {
+      let comp = null;
+      return new Setting(containerEl)
+        .setName(name)
+        .setDesc(desc || '')
+        .addSlider((sl) => {
+          comp = sl;
+          sl.setLimits(lo, hi, step)
+            .setValue(Number(holder(group)[key]))
+            .setDynamicTooltip()
+            .onChange((value) => {
+              holder(group)[key] = value;
+              apply(kind);
+            });
+        })
+        .addExtraButton((b) => b
+          .setIcon('rotate-ccw')
+          .setTooltip('back to the default (' + dflt(group, key) + (unit || '') + ')')
+          .onClick(() => {
+            holder(group)[key] = dflt(group, key);
+            comp.setValue(dflt(group, key));
+            apply(kind);
+          }));
+    };
+
     /* ── who you are ── */
     new Setting(containerEl).setName('identity').setHeading();
 
@@ -594,6 +870,100 @@ class EzaSettingTab extends PluginSettingTab {
     flag('pills', 'git', 'git pill', 'the current branch, when this vault is a git repository. it reads the file .git/HEAD in the vault folder and nothing else.',
       () => plugin.probe());
     flag('pills', 'time', 'time pill', 'the time of day.');
+    drop(null, 'pillShape', 'pill shape', 'arrow is the powerline look. round and flat drop the arrow tips (and the little >>> bridge before the clock) and use gaps instead.',
+      { arrow: 'arrow (powerline)', round: 'round', flat: 'flat' }, 'look');
+    new Setting(containerEl)
+      .setName('vault pill text')
+      .setDesc('what the second pill says. leave it empty for ~/ and the vault name.')
+      .addText((text) => text
+        .setPlaceholder('~/' + plugin.app.vault.getName())
+        .setValue(s.vaultLabel)
+        .onChange((value) => {
+          s.vaultLabel = value.trim();
+          apply('bar');
+        }));
+    tog('clock', 'hour12', '12-hour clock', 'shows 09:41 pm instead of 21:41.', 'bar');
+    tog('clock', 'seconds', 'show seconds', 'the clock pill already ticks every second. the card never changes width.', 'bar');
+
+    /* ── colours ── */
+    new Setting(containerEl).setName('colours').setHeading();
+
+    const pickers = [];
+    let presetDrop = null;
+    let refreshing = false;       /* setValue on a picker must not count as the user picking */
+    const shown = () => (s.palette.preset === 'theme' ? themeFills() : s.palette.colours);
+
+    const presets = { theme: 'default (follows your theme)' };
+    Object.keys(PALETTES).forEach((k) => { presets[k] = k; });
+    presets.custom = 'custom';
+
+    new Setting(containerEl)
+      .setName('palette')
+      .setDesc('the six colours of the rainbow. they colour the prompt pills, the tree levels, the card border, the scrollbar and the explorer tab icon. pick a preset, then change any colour below. in light mode the text versions are darkened for you.')
+      .addDropdown((d) => {
+        presetDrop = d;
+        d.addOptions(presets)
+          .setValue(presets[s.palette.preset] ? s.palette.preset : 'theme')
+          .onChange((value) => {
+            const was = s.palette.preset;
+            s.palette.preset = value;
+            if (PALETTES[value]) s.palette.colours = PALETTES[value].slice();
+            else if (value === 'custom' && was === 'theme') s.palette.colours = themeFills();
+            refreshing = true;
+            shown().forEach((c, i) => { if (pickers[i]) pickers[i].setValue(c); });
+            refreshing = false;
+            apply('look');
+          });
+      })
+      .addExtraButton((b) => b
+        .setIcon('rotate-ccw')
+        .setTooltip('back to the theme colours')
+        .onClick(() => {
+          s.palette.preset = 'theme';
+          presetDrop.setValue('theme');
+          refreshing = true;
+          shown().forEach((c, i) => { if (pickers[i]) pickers[i].setValue(c); });
+          refreshing = false;
+          apply('look');
+        }));
+
+    SLOTS.forEach((slot, i) => {
+      new Setting(containerEl)
+        .setName('colour ' + (i + 1))
+        .setDesc(slot.used)
+        .addColorPicker((c) => {
+          pickers[i] = c;
+          c.setValue(shown()[i]).onChange((hex) => {
+            if (refreshing) return;
+            if (s.palette.preset === 'theme') s.palette.colours = themeFills();   /* start from what you were seeing */
+            s.palette.colours[i] = String(hex).toLowerCase();
+            s.palette.preset = 'custom';
+            presetDrop.setValue('custom');
+            apply('look');
+          });
+        });
+    });
+
+    let inkPicker = null;
+    const autoInk = () => (lightTheme() ? '#2a2430' : '#0f0f12');
+    new Setting(containerEl)
+      .setName('pill text colour')
+      .setDesc('the text on every pill (prompt and hover). automatic = dark ink. try white with a dark palette.')
+      .addColorPicker((c) => {
+        inkPicker = c;
+        c.setValue(HEX.test(s.inkColour) ? s.inkColour : autoInk()).onChange((hex) => {
+          s.inkColour = String(hex).toLowerCase();
+          apply('look');
+        });
+      })
+      .addExtraButton((b) => b
+        .setIcon('rotate-ccw')
+        .setTooltip('back to automatic')
+        .onClick(() => {
+          s.inkColour = '';
+          inkPicker.setValue(autoInk());
+          apply('look');
+        }));
 
     /* ── the tree ── */
     new Setting(containerEl).setName('tree').setHeading();
@@ -607,8 +977,41 @@ class EzaSettingTab extends PluginSettingTab {
           await plugin.saveSettings();
           plugin.renderAll();
         }));
+    tog('tree', 'reverse', 'reverse the order', 'flips whatever sort is active. folders still come first if that is on.', 'tree');
+    drop('tree', 'extensions', 'file extensions', 'only changes what the tree shows. the files keep their real names.',
+      { all: 'show all', md: 'hide .md', none: 'hide all' }, 'tree');
+    drop('tree', 'nameColour', 'name colours', "by depth = one colour per level, like the prompt. by file type = folders blue, notes green, images lilac, pdfs pink, canvases peach, the rest yellow. plain = your theme's text colour.",
+      { depth: 'by depth', type: 'by file type', plain: 'plain' }, 'tree');
+    drop('tree', 'activeStyle', 'open note marker', 'how the note you have open is marked in the tree.',
+      { outline: 'outline', fill: 'filled pill', none: 'none' }, 'look');
+    tog('tree', 'autoReveal', 'follow the open note', 'when you open a note, unfold its folders and scroll to it (what the reveal command does).', 'look');
+    slide('tree', 'fontSize', 'tree font size', 'the names and the lines. the prompt keeps its size.', 9, 20, 0.5, 'look', 'px');
+    slide('tree', 'rowHeight', 'row height', 'space between rows.', 16, 40, 1, 'look', 'px');
+    slide('tree', 'indent', 'indent width', 'characters per level. eza uses 4.', 3, 8, 1, 'look', ' ch');
+    drop('tree', 'lineStyle', 'line style', 'the ├── └── │ lines.', { solid: 'solid', dashed: 'dashed', dotted: 'dotted' }, 'look');
+    slide('tree', 'lineWidth', 'line thickness', '', 1, 3, 1, 'look', 'px');
+    slide('tree', 'lineOpacity', 'line strength', 'how strong the lines are, in percent.', 5, 100, 5, 'look', '%');
+
+    /* ── hover reveal ── */
+    new Setting(containerEl).setName('hover reveal').setHeading();
     flag('show', 'reveal', 'reveal full names on hover', 'hover a name that is cut off and a colour pill, like the prompt ones, shows the whole thing.',
       () => plugin.hidePill());
+    tog('revealPill', 'always', 'also on names that fit', 'show the pill on every name you hover, not only the cut-off ones.', 'look');
+    slide('revealPill', 'delay', 'delay', 'how long the mouse rests on a name before the pill appears.', 0, 600, 20, 'look', ' ms');
+
+    /* ── card and layout ── */
+    new Setting(containerEl).setName('card and layout').setHeading();
+    drop('card', 'width', 'card width', 'fit = as wide as the prompt (the same size as mish.fastfetch). full = the whole sidebar.',
+      { fit: 'fit the prompt', full: 'full width' }, 'look');
+    drop('card', 'hAlign', 'horizontal position', 'only matters for the fit width.', { centre: 'centre', left: 'left' }, 'look');
+    drop('card', 'vAlign', 'vertical position', 'centred when the card is shorter than the sidebar, or pinned to the top.',
+      { centre: 'centre', top: 'top' }, 'look');
+    drop('card', 'ring', 'border', 'rainbow uses the palette. accent is obsidian\'s accent colour. subtle is your theme\'s border colour.',
+      { rainbow: 'rainbow', accent: 'accent colour', subtle: 'subtle', none: 'none' }, 'look');
+    slide('card', 'ringWidth', 'border thickness', '', 1, 4, 1, 'look', 'px');
+    slide('card', 'angle', 'rainbow angle', 'direction of the border gradient. 135 runs top-left to bottom-right.', 0, 345, 15, 'look', '°');
+    slide('card', 'radius', 'corner radius', '', 0, 28, 1, 'look', 'px');
+    slide('card', 'pad', 'outer margin', 'space between the card and the edge of the sidebar.', 0, 32, 1, 'look', 'px');
 
     /* ── the shell ── */
     new Setting(containerEl).setName('shell').setHeading();
@@ -621,6 +1024,7 @@ class EzaSettingTab extends PluginSettingTab {
           s.confirmRm = value;
           await plugin.saveSettings();
         }));
+    flag('show', 'shell', 'shell line', 'the typing area and the clickable commands at the bottom. hide it for a plain prompt and tree. the commands are unavailable while it is hidden.');
     flag('show', 'command', 'command line', 'the line that says eza --tree --all, and the dot under it.');
     flag('show', 'keys', 'clickable commands', 'the row of command names you can click (touch, mkdir, rename and so on). you can still type them.');
 
@@ -695,6 +1099,24 @@ class EzaSettingTab extends PluginSettingTab {
           }
           button.setDisabled(false);
         }));
+
+    /* ── reset ── */
+    new Setting(containerEl).setName('reset').setHeading();
+    new Setting(containerEl)
+      .setName('reset appearance')
+      .setDesc('puts every colour, shape, tree, hover and card option back to the default. your name, prompt pills, font and shell settings are not touched.')
+      .addButton((button) => button
+        .setButtonText('reset')
+        .setWarning()
+        .onClick(async () => {
+          for (const k of ['palette', 'inkColour', 'pillShape', 'tree', 'card', 'revealPill']) {
+            s[k] = clone(DEFAULT_SETTINGS[k]);
+          }
+          await plugin.saveAll();
+          plugin.applySettings();
+          plugin.renderAll();
+          this.display();
+        }));
   }
 }
 
@@ -710,15 +1132,12 @@ module.exports = class MishEza extends Plugin {
 
     /* data.json holds the settings, the folded folders and the sort order */
     const saved = (await this.loadData()) || {};
-    const savedSettings = saved.settings || {};
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, savedSettings, {
-      pills: Object.assign({}, DEFAULT_SETTINGS.pills, savedSettings.pills),
-      show: Object.assign({}, DEFAULT_SETTINGS.show, savedSettings.show),
-    });
+    this.settings = sanitise(deepMerge(clone(DEFAULT_SETTINGS), saved.settings || {}));
     this.open = new Set(saved.open || []);
     this.sortKey = SORTS.includes(saved.sort) ? saved.sort : 'name';
 
     this.addSettingTab(new EzaSettingTab(this.app, this));
+    this.restyle();      /* the tab icon's gradient, before the first panel exists */
 
     this.app.workspace.onLayoutReady(() => {
       this.ensure();
@@ -726,7 +1145,15 @@ module.exports = class MishEza extends Plugin {
     });
     this.registerEvent(this.app.workspace.on('layout-change', () => this.ensure()));
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.ensure()));
-    this.registerEvent(this.app.workspace.on('file-open', () => this.markActive()));
+    this.registerEvent(this.app.workspace.on('file-open', () => {
+      if (this.settings.tree.autoReveal) {
+        try { this.cmdReveal('nearest'); } catch (e) { this.markActive(); }
+      } else {
+        this.markActive();
+      }
+    }));
+    /* light <-> dark: custom colours have a darker text version in light mode */
+    this.registerEvent(this.app.workspace.on('css-change', () => this.restyle()));
 
     /* the tree follows the vault */
     const bump = () => {
@@ -766,6 +1193,7 @@ module.exports = class MishEza extends Plugin {
 
   onunload() {
     this.hidePill();
+    paintRainbow(DEFAULT_SETTINGS);      /* the shared gradient goes back to the theme's colours */
     unmountRainbow();
     window.clearTimeout(this.renderTimer);
     window.clearTimeout(this.saveTimer);
@@ -879,7 +1307,7 @@ module.exports = class MishEza extends Plugin {
     const { pills } = this.settings;
     const segs = [];
     if (pills.user) segs.push(['ez-user', osGlyph() + ' ' + this.identity()]);
-    if (pills.vault) segs.push(['ez-path', '~/' + this.app.vault.getName()]);
+    if (pills.vault) segs.push(['ez-path', this.settings.vaultLabel || '~/' + this.app.vault.getName()]);
     if (pills.git && this.branch) segs.push(['ez-git', this.branch, true]);
     if (pills.time) {
       /* the same yellow / green / blue bridge as mish.fastfetch, so both prompts
@@ -922,9 +1350,17 @@ module.exports = class MishEza extends Plugin {
     if (stack) root.style.setProperty('--vf-mono', stack);
     else root.style.removeProperty('--vf-mono');
 
+    /* colours, sizes, lines, the card: all css variables on this panel */
+    applyVars(root, Object.assign({}, paletteVars(this.settings), layoutVars(this.settings)));
+    SHAPES.forEach((n) => root.classList.toggle('ez-shape-' + n, this.settings.pillShape === n));
+    ACTIVES.forEach((n) => root.classList.toggle('ez-act-' + n, this.settings.tree.activeStyle === n));
+    root.classList.toggle('ez-full', this.settings.card.width === 'full');
+
     refs.cmd.hidden = !show.command;
     refs.dot.hidden = !show.command;
     refs.keys.hidden = !show.keys;
+    const foot = root.querySelector('.ez-foot');
+    if (foot) foot.hidden = show.shell === false;
     if (refs.fit) refs.fit();
   }
 
@@ -934,6 +1370,13 @@ module.exports = class MishEza extends Plugin {
       this.drawBar(root);
       this.applyLook(root);
     }
+    paintRainbow(this.settings);
+  }
+
+  /* styles only (colours, sizes, shape): cheaper than applySettings, no prompt redraw */
+  restyle() {
+    for (const root of this.roots) this.applyLook(root);
+    paintRainbow(this.settings);
   }
 
   /* what the settings say, falling back to what the system says */
@@ -1089,7 +1532,7 @@ module.exports = class MishEza extends Plugin {
   /* guides[i] is true when ancestor i still has siblings below it (draws │).
      depth picks the colour: pink, peach, yellow, green, blue, lilac, repeat. */
   walk(folder, guides, out) {
-    const kids = sorted(folder, this.sortKey, this.settings.groupDirsFirst);
+    const kids = sorted(folder, this.sortKey, this.settings.groupDirsFirst, this.settings.tree.reverse);
     const depth = guides.length;
     const colour = 'ez-c' + (depth % COLOURS);
 
@@ -1099,15 +1542,19 @@ module.exports = class MishEza extends Plugin {
 
       const row = el('div', 'ez-row');
       row.dataset.path = node.path;
+      row.dataset.depth = String(depth % COLOURS);     /* the hover pill falls back to this colour */
 
       guides.forEach((g, j) => {
         row.appendChild(el('span', 'ez-cell ez-c' + (j % COLOURS) + (g ? ' ez-v' : '')));
       });
       row.appendChild(el('span', 'ez-cell ' + colour + ' ' + (last ? 'ez-l' : 'ez-t')));
 
-      const name = el('span', 'ez-name ' + colour + (isDir ? ' ez-dir' : ''));
+      /* name colour: by depth (like the prompt), by file type, or plain */
+      const mode = this.settings.tree.nameColour;
+      const nameColour = mode === 'type' ? 'ez-c' + kindColour(node) : mode === 'plain' ? '' : colour;
+      const name = el('span', 'ez-name ' + nameColour + (isDir ? ' ez-dir' : ''));
       name.appendChild(el('span', 'ez-fold', isDir ? (this.open.has(node.path) ? '-' : '+') : ''));
-      name.appendChild(document.createTextNode(node.name));
+      name.appendChild(document.createTextNode(labelFor(node, this.settings.tree.extensions)));
       row.appendChild(name);
 
       out.appendChild(row);
@@ -1186,7 +1633,8 @@ module.exports = class MishEza extends Plugin {
       stop();
       current = row;
       if (this.settings.show.reveal === false) return;
-      timer = window.setTimeout(() => this.showPill(row), 140);   /* a short pause, so sweeping down the tree doesn't flash */
+      /* a short pause (a setting), so sweeping down the tree doesn't flash */
+      timer = window.setTimeout(() => this.showPill(row), num(this.settings.revealPill.delay, 0, 1000, 140));
     });
 
     tree.addEventListener('mouseleave', stop);
@@ -1200,17 +1648,19 @@ module.exports = class MishEza extends Plugin {
     this.hidePill();
     const name = row.isConnected ? row.querySelector('.ez-name') : null;
     if (!name || !name.lastChild) return;
-    if (name.scrollWidth <= name.clientWidth + 1) return;   /* it all fits: nothing to reveal */
+    if (!this.settings.revealPill.always && name.scrollWidth <= name.clientWidth + 1) return;   /* it all fits: nothing to reveal */
 
     const rect = name.getBoundingClientRect();
     const style = window.getComputedStyle(name);
-    const depth = (name.className.match(/ez-c\d/) || ['ez-c0'])[0];
+    const own = name.className.match(/ez-c\d/);       /* plain-coloured names have none: use the row's depth */
+    const depth = own ? own[0] : 'ez-c' + (row.dataset.depth || '0');
 
-    const wrap = el('div', 'ez-pill-wrap');
+    const wrap = el('div', 'ez-pill-wrap ez-shape-' + this.settings.pillShape);
     const pill = el('div', 'ez-pill ' + depth + (name.classList.contains('ez-dir') ? ' ez-dir' : ''));
     pill.appendChild(el('span', 'ez-pill-fold', name.firstChild.textContent));   /* the + / - keeps its column */
     pill.appendChild(document.createTextNode(name.lastChild.textContent));
     wrap.appendChild(pill);
+    applyVars(wrap, paletteVars(this.settings));       /* it lives on <body>, so it needs the palette itself */
 
     /* same face and size as the row, so the letters don't jump when the pill lands */
     wrap.style.fontFamily = style.fontFamily;
@@ -1598,7 +2048,7 @@ module.exports = class MishEza extends Plugin {
     this.say('sorted by ' + key);
   }
 
-  cmdReveal() {
+  cmdReveal(block = 'center') {
     const file = this.app.workspace.getActiveFile();
     if (!file) throw new Error('no note is open');
 
@@ -1607,7 +2057,7 @@ module.exports = class MishEza extends Plugin {
     for (const root of this.roots) {
       const row = [...root.__ez.tree.querySelectorAll('.ez-row')]
         .find((r) => r.dataset.path === file.path);
-      if (row) row.scrollIntoView({ block: 'center' });
+      if (row) row.scrollIntoView({ block });
     }
   }
 
@@ -1630,7 +2080,10 @@ module.exports = class MishEza extends Plugin {
 
   tick() {
     const d = new Date();
-    const text = '\uF43A ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    const { hour12, seconds } = this.settings.clock;
+    const h = d.getHours();
+    const text = '\uF43A ' + pad(hour12 ? h % 12 || 12 : h) + ':' + pad(d.getMinutes()) +
+      (seconds ? ':' + pad(d.getSeconds()) : '') + (hour12 ? (h >= 12 ? ' pm' : ' am') : '');
 
     for (const root of this.roots) {
       const refs = root.__ez;
