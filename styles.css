@@ -434,6 +434,50 @@ body.theme-light {
   width: 2ch;
 }
 
+/* ═══ the reveal pill ═══
+   a cut-off name grows into a prompt-style pill on hover (see showPill in main.js).
+   it is appended to <body>, outside the card, so it carries its own colours:
+   the same fills as the prompt pills, in the same depth order, ink on top. */
+
+.ez-pill-wrap {
+  position: fixed;
+  z-index: 70;                       /* above the sidebar, in the same layer as obsidian's tooltips */
+  pointer-events: none;              /* the row underneath keeps the mouse, so nothing flickers */
+  max-width: calc(100vw - 16px);
+  filter: drop-shadow(0 2px 5px var(--mz-shadow));   /* on the wrapper: a shadow on the clipped pill itself would be cut off */
+  animation: ez-pill-in 110ms ease-out;
+}
+
+.ez-pill {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0 16px 0 6px;             /* 6px left = the pill starts just before the name, text doesn't move */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;           /* only if a name is wider than the whole window */
+  color: var(--vf-black, var(--mz-ink));
+  border-radius: 999px 0 0 999px;    /* round cap on the left... */
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 0 100%);   /* ...arrow tip on the right, like .ez-seg */
+}
+
+.ez-pill-fold { display: inline-block; width: 2ch; }
+
+.ez-pill.ez-c0 { background: var(--vf-pink-hi, var(--mz-f-pink-hi)); }
+.ez-pill.ez-c1 { background: var(--vf-peach, var(--mz-f-peach)); }
+.ez-pill.ez-c2 { background: var(--vf-yellow, var(--mz-f-yellow)); }
+.ez-pill.ez-c3 { background: var(--vf-green, var(--mz-f-green)); }
+.ez-pill.ez-c4 { background: var(--vf-blue, var(--mz-f-blue)); }
+.ez-pill.ez-c5 { background: var(--vf-lilac, var(--mz-f-lilac)); }
+
+@keyframes ez-pill-in {
+  from { opacity: 0; transform: translateX(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ez-pill-wrap { animation: none; }
+}
+
 /* ═══ the little shell ═══ */
 
 .ez-foot {

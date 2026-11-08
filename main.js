@@ -12,6 +12,8 @@
      it is not a real shell: the words are mapped onto obsidian's own vault
      api. nothing is ever sent to the operating system, and nothing is run.
    - the prompt grows a git branch when the vault is a git repository
+   - names are cut off with an ellipsis (the card never resizes). hover one and it
+     grows into a prompt-style colour pill with the whole name, in its depth colour
    - everything (prompt, tree and the shell line) sits in one bordered card,
      the same box mish.fastfetch draws: it hugs its content and centres itself
    the old explorer is only hidden; "toggle native file explorer" brings it back.
@@ -43,7 +45,7 @@ const DEFAULT_SETTINGS = {
   groupDirsFirst: true,  /* like `eza --group-directories-first` */
   confirmRm: true,       /* rm / delete ask y or n in the prompt first */
   pills: { user: true, vault: true, git: true, time: true },
-  show: { command: true, keys: true },
+  show: { command: true, keys: true, reveal: true },
 };
 
 /* who you are, as the operating system reports it */
@@ -605,6 +607,8 @@ class EzaSettingTab extends PluginSettingTab {
           await plugin.saveSettings();
           plugin.renderAll();
         }));
+    flag('show', 'reveal', 'reveal full names on hover', 'hover a name that is cut off and a colour pill, like the prompt ones, shows the whole thing.',
+      () => plugin.hidePill());
 
     /* ── the shell ── */
     new Setting(containerEl).setName('shell').setHeading();
@@ -761,6 +765,7 @@ module.exports = class MishEza extends Plugin {
   }
 
   onunload() {
+    this.hidePill();
     unmountRainbow();
     window.clearTimeout(this.renderTimer);
     window.clearTimeout(this.saveTimer);
@@ -1069,6 +1074,7 @@ module.exports = class MishEza extends Plugin {
   renderTree(root) {
     const frag = document.createDocumentFragment();
     this.walk(this.app.vault.getRoot(), [], frag);
+    this.hidePill();                      /* its row is about to be replaced */
     root.__ez.tree.replaceChildren(frag);
 
     root.__ez.arg.textContent =
@@ -1123,6 +1129,8 @@ module.exports = class MishEza extends Plugin {
   /* ── clicking the tree ───────────────────────────────────────────── */
 
   bind(root, tree) {
+    this.bindReveal(root, tree);
+
     tree.addEventListener('click', (e) => {
       const row = e.target.closest('.ez-row');
       if (!row) return;
@@ -1152,6 +1160,84 @@ module.exports = class MishEza extends Plugin {
       this.app.workspace.trigger('file-menu', menu, item, 'file-explorer-context-menu');
       menu.showAtMouseEvent(e);
     });
+  }
+
+  /* ── the reveal pill ─────────────────────────────────────────────────────
+     the card never resizes, so long names end in an ellipsis. hover one (only
+     one that is actually cut off) and a prompt-style pill grows out of it with
+     the whole name: depth colour, ink text, arrow tip. it lives on <body>, not
+     inside the card, because the card clips anything that sticks out. it never
+     takes the mouse (pointer-events: none), so the row underneath keeps its
+     hover and nothing flickers. */
+
+  bindReveal(root, tree) {
+    let current = null;
+    let timer = 0;
+
+    const stop = () => {
+      current = null;
+      window.clearTimeout(timer);
+      this.hidePill();
+    };
+
+    tree.addEventListener('mouseover', (e) => {
+      const row = e.target.closest('.ez-row');
+      if (!row || row === current) return;
+      stop();
+      current = row;
+      if (this.settings.show.reveal === false) return;
+      timer = window.setTimeout(() => this.showPill(row), 140);   /* a short pause, so sweeping down the tree doesn't flash */
+    });
+
+    tree.addEventListener('mouseleave', stop);
+    tree.addEventListener('click', stop);
+    tree.addEventListener('contextmenu', stop);
+    const scroller = tree.closest('.ez-scroll');
+    if (scroller) scroller.addEventListener('scroll', stop, { passive: true });
+  }
+
+  showPill(row) {
+    this.hidePill();
+    const name = row.isConnected ? row.querySelector('.ez-name') : null;
+    if (!name || !name.lastChild) return;
+    if (name.scrollWidth <= name.clientWidth + 1) return;   /* it all fits: nothing to reveal */
+
+    const rect = name.getBoundingClientRect();
+    const style = window.getComputedStyle(name);
+    const depth = (name.className.match(/ez-c\d/) || ['ez-c0'])[0];
+
+    const wrap = el('div', 'ez-pill-wrap');
+    const pill = el('div', 'ez-pill ' + depth + (name.classList.contains('ez-dir') ? ' ez-dir' : ''));
+    pill.appendChild(el('span', 'ez-pill-fold', name.firstChild.textContent));   /* the + / - keeps its column */
+    pill.appendChild(document.createTextNode(name.lastChild.textContent));
+    wrap.appendChild(pill);
+
+    /* same face and size as the row, so the letters don't jump when the pill lands */
+    wrap.style.fontFamily = style.fontFamily;
+    wrap.style.fontSize = style.fontSize;
+    wrap.style.letterSpacing = style.letterSpacing;
+    wrap.style.height = rect.height + 'px';
+    wrap.style.lineHeight = rect.height + 'px';
+    pill.style.height = rect.height + 'px';
+
+    document.body.appendChild(wrap);
+
+    /* start 6px left of the name (that is the pill's own padding, so the text stays put),
+       and slide back in if it would run off the right edge of the window */
+    let left = rect.left - 6;
+    const room = window.innerWidth - 8;
+    if (left + wrap.offsetWidth > room) left = Math.max(8, room - wrap.offsetWidth);
+    wrap.style.left = left + 'px';
+    wrap.style.top = rect.top + 'px';
+
+    this.pill = wrap;
+  }
+
+  hidePill() {
+    if (this.pill) {
+      this.pill.remove();
+      this.pill = null;
+    }
   }
 
   /* ── the shell ───────────────────────────────────────────────────── */
