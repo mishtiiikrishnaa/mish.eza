@@ -862,15 +862,14 @@ body.theme-light {
 /* when the explorer isn't in eza mode, none of this exists */
 .workspace-leaf-content[data-type="file-explorer"]:not(.ez-on) .ez-sb { display: none !important; }
 
-/* ═══ rainbow gradient on our own icons ═══
-   the gradient itself (#mish-rainbow) is injected by the plugin. the second
-   value after url() is the fallback colour if the gradient isn't there.
-   the explorer tab icon (the folder) and the fetch tab + ribbon icons (those two
-   are repeated in mish.fastfetch's own css, so either file alone is enough). */
+/* ═══ rainbow gradient on our own icon ═══
+   the gradient itself (#mish-rainbow) is injected by the plugin and follows this
+   plugin's palette. the second value after url() is the fallback colour if the
+   gradient isn't there. this file only paints the explorer tab icon (the folder).
+   mish.fastfetch paints its own tab and ribbon icons from its own gradient, so
+   each plugin's icons follow that plugin's palette when both are installed. */
 
-.workspace-tab-header[data-type="file-explorer"] .workspace-tab-header-inner-icon svg,
-.workspace-tab-header[data-type="tv-fetch-view"] .workspace-tab-header-inner-icon svg,
-.mish-fetch-ribbon svg {
+.workspace-tab-header[data-type="file-explorer"] .workspace-tab-header-inner-icon svg {
   stroke: url(#mish-rainbow) #ffa6c9 !important;
 }
 
