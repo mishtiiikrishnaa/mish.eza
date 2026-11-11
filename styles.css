@@ -456,13 +456,19 @@ body.theme-light {
      it starts 6px before the text (the margin and padding cancel out, so the text
      doesn't move), which is only visible when the row is hovered or is the open note */
   margin-left: -6px;
-  padding: 0 6px;
+  padding: 0 16px 0 6px;   /* 16px right = the 9px arrow tip + 7px of air, so the last letter never touches it (same as the prompt pills) */
   border-radius: 999px 0 0 999px;
   clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 0 100%);
   color: var(--c, var(--vf-fg, var(--mz-fg)));
 }
 
 .ez-dir { font-weight: 700; }
+
+/* a file has no + / - marker, so its pill should start at the name, not 2ch before it
+   (that blank marker column is what made the open note's pill lopsided). the margin
+   moves the pill's start to 6px before the text; the text itself doesn't move. */
+.ez-name:not(.ez-dir) { margin-left: calc(2ch - 6px); }
+.ez-name:not(.ez-dir) .ez-fold { display: none; }
 
 .ez-row:hover .ez-name { background: var(--mz-hover); }
 /* the open note: a tinted pill in the row's own colour, same shape as the prompt.

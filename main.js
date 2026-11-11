@@ -1757,7 +1757,8 @@ module.exports = class MishEza extends Plugin {
 
     const wrap = el('div', 'ez-pill-wrap ez-shape-' + this.settings.pillShape);
     const pill = el('div', 'ez-pill ' + depth + (name.classList.contains('ez-dir') ? ' ez-dir' : ''));
-    pill.appendChild(el('span', 'ez-pill-fold', name.firstChild.textContent));   /* the + / - keeps its column */
+    const fold = name.firstChild.textContent;
+    if (fold.trim()) pill.appendChild(el('span', 'ez-pill-fold', fold));   /* the + / - keeps its column; files have none, and their pill starts at the name */
     pill.appendChild(document.createTextNode(name.lastChild.textContent));
     wrap.appendChild(pill);
     applyVars(wrap, paletteVars(this.settings));       /* it lives on <body>, so it needs the palette itself */
