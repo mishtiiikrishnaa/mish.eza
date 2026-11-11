@@ -2,7 +2,7 @@
 # run from the repository root:  bash scripts/check.sh
 # checks the things that are cheap to check by machine, before a release.
 set -u
-ID="mish-music"
+ID="mish-eza"
 GREP_RE='child_process|fetch\(|XMLHttpRequest|WebSocket|eval\(|new Function|innerHTML'
 fail=0
 ok()  { echo "  ok    $1"; }
